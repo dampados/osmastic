@@ -58,4 +58,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    //new ones:
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
 }
