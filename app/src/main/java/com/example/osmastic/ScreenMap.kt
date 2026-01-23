@@ -60,12 +60,10 @@ fun ScreenMap(modifier: Modifier = Modifier) {
 
 
     Box(contentAlignment = Alignment.Center, modifier = modifier.statusBarsPadding()) {
-//        Text("MAP SCREEN", fontSize = 100.sp)
 
-//        controller.setCenter(uiState.mapCenter) // STATE READING
-//        controller.setZoom(uiState.mapZoom)
 
-        Text(uiState.mapCenter.toString(), fontSize = 14.sp)
-//        Text(uiState.mapZoom)
+        Text(uiState.mapZoom.toString(), fontSize = 14.sp)
+        Text(uiState.mapCenter.toString(), fontSize = 14.sp, modifier = modifier.statusBarsPadding())
+
     }
 }
