@@ -39,31 +39,50 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.osmdroid.util.GeoPoint
+// OSM tiles fix?
+import org.osmdroid.config.Configuration
+import java.io.File
 
 // !!!!!!!!!!!! MAIN MODEL BATTERY
 data class StateGlobalModel(
     val testCounter: Int = 0,
-    val currentDestination: AppDestinations = AppDestinations.MAP  // bottom switcher
+    val currentDestination: AppDestinations = AppDestinations.MAP,  // bottom switcher
+
+    val mapCenter: GeoPoint = GeoPoint(59.9343, 30.3351), // default loc, SPB
+    val mapZoom: Double = 12.0 // obvious
 )
 
 class StateGlobalViewModel : ViewModel() {
-    // !!!!!!!!!!!!!!!! Single source of truth for global state
     private val _uiState = MutableStateFlow(StateGlobalModel()) // RW, but private!
     val uiState: StateFlow<StateGlobalModel> = _uiState.asStateFlow() // readonly!
-
-    fun incrementCounter() {
-        _uiState.value = _uiState.value.copy(testCounter = _uiState.value.testCounter + 1)
-    }
 
     fun navigateTo(destination: AppDestinations) {
         _uiState.value = _uiState.value.copy(currentDestination = destination)
     }
+    fun updateMapPosition(center: GeoPoint, zoom: Double) {
+        _uiState.value = _uiState.value.copy(
+            mapCenter = center,
+            mapZoom = zoom
+        )
+    }
 
+    fun incrementTestCounter() {
+        _uiState.value = _uiState.value.copy(testCounter = _uiState.value.testCounter + 1)
+    }
 }
+// !!!!!!!!!!!! MAIN MODEL BATTERY
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        Configuration.getInstance().apply {
+            userAgentValue = packageName
+            osmdroidBasePath = File(cacheDir.absolutePath, "osmdroid").apply { mkdirs() }
+            osmdroidTileCache = File(cacheDir.absolutePath, "osmdroid/tiles").apply { mkdirs() }
+        }
+
         enableEdgeToEdge()
         setContent {
             OsmasticTheme {
