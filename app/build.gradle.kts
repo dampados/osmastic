@@ -2,6 +2,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+
+    //KSP FOR THE ROOM
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -33,9 +36,14 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
+//    kotlinOptions {
+//        jvmTarget = "11"
+//    }
     buildFeatures {
         compose = true
     }
@@ -61,4 +69,10 @@ dependencies {
     //new ones:
     implementation("org.osmdroid:osmdroid-android:6.1.18")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
+    //ROOM LIBS + KSP
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler) // Use KSP, not kapt or annotationProcessor
+    implementation(libs.androidx.room.ktx) // For coroutine support
+    // OH MY GOD BUILT IN ICONS ARE BACK
+    implementation("androidx.compose.material:material-icons-extended")
 }
