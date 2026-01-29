@@ -18,7 +18,7 @@ data class Pin(
     val label: String? = null,
     val timeToLiveSeconds: Int? = null
 ) {
-    // Required override for ByteArray comparison in data class
+    // we OBLIGED to override the equals fun - bc of the Byte Array type. but its worth it
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
@@ -38,6 +38,7 @@ data class Pin(
         return timeToLiveSeconds == other.timeToLiveSeconds
     }
 
+    //this too - byte array
     override fun hashCode(): Int {
         var result = id
         result = 31 * result + lamportEpoch

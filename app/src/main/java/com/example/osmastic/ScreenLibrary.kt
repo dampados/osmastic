@@ -10,6 +10,6 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ScreenLibrary(modifier: Modifier = Modifier) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Text("LIBRARY SCREEN", fontSize = 20.sp)
+        Text("PIN LIST SCREEN", fontSize = 20.sp)
     }
 }
