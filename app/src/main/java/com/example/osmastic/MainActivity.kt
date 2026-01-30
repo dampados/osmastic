@@ -1,5 +1,6 @@
 package com.example.osmastic
 
+import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -32,6 +33,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Map
+import androidx.lifecycle.AndroidViewModel
+import kotlin.getValue
+// import db
+import com.example.osmastic.db.AppDatabase
+import com.example.osmastic.db.Pin
 
 // !!!!!!!!!!!! MAIN MODEL BATTERY
 data class StateGlobalModel(
@@ -42,10 +48,30 @@ data class StateGlobalModel(
     val mapZoom: Double = 12.0 // obvious
 )
 
-class StateGlobalViewModel : ViewModel() {
+class StateGlobalViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(StateGlobalModel()) // RW, but private!
     val uiState: StateFlow<StateGlobalModel> = _uiState.asStateFlow() // readonly!
 
+    // 🛠️🛠️🛠️ SERVICES (singleton via lazy)
+    private val appContext get() = getApplication<Application>().applicationContext // GLOBAL APP CONTEXT (e.g. create a db file by correct path)
+    private val database by lazy { AppDatabase.getDatabase(appContext) } // HERE PASS THRU this context
+    val pinDao by lazy { database.pinDao() } // DAOs, more - later
+    // Later: val bleManager by lazy { BleManager(appContext) }
+    // Later: val meshService by lazy { MeshtasticService(appContext) }
+    // 🛠️🛠️🛠️ SERVICES (singleton via lazy)
+
+    // ⚙️⚙️⚙️ OSMDROID CONFIG INIT
+    init {
+        Configuration.getInstance().apply {
+            userAgentValue = appContext.packageName
+            osmdroidBasePath = File(appContext.cacheDir.absolutePath, "osmdroid").apply { mkdirs() }
+            osmdroidTileCache = File(appContext.cacheDir.absolutePath, "osmdroid/tiles").apply { mkdirs() }
+        }
+    }
+    // ⚙️⚙️⚙️ OSMDROID CONFIG INIT
+
+
+    // ➡️➡️➡️ INTERACTIVE
     fun navigateTo(destination: AppDestinations) {
         _uiState.value = _uiState.value.copy(currentDestination = destination)
     }
@@ -55,23 +81,16 @@ class StateGlobalViewModel : ViewModel() {
             mapZoom = zoom
         )
     }
-
-//    fun incrementTestCounter() {
-//        _uiState.value = _uiState.value.copy(testCounter = _uiState.value.testCounter + 1)
-//    }
+    fun incrementTestCounter() {
+        _uiState.value = _uiState.value.copy(testCounter = _uiState.value.testCounter + 1)
+    }
+    // ➡️➡️➡️ INTERACTIVE
 }
 // !!!!!!!!!!!! MAIN MODEL BATTERY
-
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        Configuration.getInstance().apply {
-            userAgentValue = packageName
-            osmdroidBasePath = File(cacheDir.absolutePath, "osmdroid").apply { mkdirs() }
-            osmdroidTileCache = File(cacheDir.absolutePath, "osmdroid/tiles").apply { mkdirs() }
-        }
 
         enableEdgeToEdge()
         setContent {
@@ -85,7 +104,6 @@ class MainActivity : ComponentActivity() {
 @PreviewScreenSizes
 @Composable
 fun OsmasticApp() {
-//    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.MAP) }
     val appViewModel: StateGlobalViewModel = viewModel()
     val uiState by appViewModel.uiState.collectAsState()
 
@@ -96,13 +114,10 @@ fun OsmasticApp() {
                     icon = {
                         Icon(
                             it.icon,
-//                            imageVector = ImageVector.vectorResource(id = it.iconResId),
                             contentDescription = it.label
                         )
                     },
                     label = { Text(it.label) },
-//                    selected = it == currentDestination,
-//                    onClick = { currentDestination = it }
                     selected = it == uiState.currentDestination,  // ← CHANGE HERE
                     onClick = { appViewModel.navigateTo(it) }
                 )
@@ -110,14 +125,12 @@ fun OsmasticApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-
 //            when (currentDestination) {
             when (uiState.currentDestination) {
                 AppDestinations.PINLIST -> ScreenLibrary(modifier = Modifier.padding(innerPadding))
                 AppDestinations.MAP -> ScreenMap(modifier = Modifier.padding(innerPadding))
                 AppDestinations.CHANNELS -> ScreenChannels(modifier = Modifier.padding(innerPadding))
             }
-
         }
     }
 }
