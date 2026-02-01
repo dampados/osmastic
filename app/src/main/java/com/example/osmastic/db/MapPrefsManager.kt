@@ -23,7 +23,7 @@ class MapPrefsManager(private val dataStore: DataStore<Preferences>) {
         .map { prefs -> prefs[MAP_ZOOM] ?: 11.0 }
     val lastChannelId: Flow<String?> = dataStore.data // nullable
         .map { prefs -> prefs[LAST_CHANNEL] } // TODO delete comment
-
+    // TODO delete comment
     // ➡️➡️➡️ INTERACTIVE SAVING VVV
     suspend fun saveMapPos(latitude: Double, longitude: Double, zoom: Double) {
         dataStore.edit { prefs ->
