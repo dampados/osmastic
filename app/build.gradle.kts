@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
+    implementation(libs.androidx.lifecycle.process)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -75,4 +76,6 @@ dependencies {
     implementation(libs.androidx.room.ktx) // For coroutine support
     // OH MY GOD BUILT IN ICONS ARE BACK
     implementation("androidx.compose.material:material-icons-extended")
+    // datastore from jetpack compose for shared prefs
+    implementation("androidx.datastore:datastore-preferences:1.1.0")
 }

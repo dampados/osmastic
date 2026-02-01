@@ -39,13 +39,9 @@ import kotlin.getValue
 import com.example.osmastic.db.AppDatabase
 import com.example.osmastic.db.Pin
 
-// !!!!!!!!!!!! MAIN MODEL BATTERY
+// 📥📥📥  MAIN MODEL BATTERY 📥📥📥
 data class StateGlobalModel(
-    val testCounter: Int = 0,
     val currentDestination: AppDestinations = AppDestinations.MAP,  // bottom switcher
-
-    val mapCenter: GeoPoint = GeoPoint(59.9343, 30.3351), // default loc, SPB
-    val mapZoom: Double = 12.0 // obvious
 )
 
 class StateGlobalViewModel(application: Application) : AndroidViewModel(application) {
@@ -75,18 +71,9 @@ class StateGlobalViewModel(application: Application) : AndroidViewModel(applicat
     fun navigateTo(destination: AppDestinations) {
         _uiState.value = _uiState.value.copy(currentDestination = destination)
     }
-    fun updateMapPosition(center: GeoPoint, zoom: Double) {
-        _uiState.value = _uiState.value.copy(
-            mapCenter = center,
-            mapZoom = zoom
-        )
-    }
-    fun incrementTestCounter() {
-        _uiState.value = _uiState.value.copy(testCounter = _uiState.value.testCounter + 1)
-    }
     // ➡️➡️➡️ INTERACTIVE
 }
-// !!!!!!!!!!!! MAIN MODEL BATTERY
+// 📥📥📥 MAIN MODEL BATTERY 📥📥📥
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,6 +93,11 @@ class MainActivity : ComponentActivity() {
 fun OsmasticApp() {
     val appViewModel: StateGlobalViewModel = viewModel()
     val uiState by appViewModel.uiState.collectAsState()
+
+    // STATES !!! keep em all on the same level and context as NS:
+    val mapViewModel: StateMapViewModel = viewModel() // MAP
+//    val libraryViewModel: StateLibraryViewModel = viewModel()   // later
+//    val channelsViewModel: StateChannelsViewModel = viewModel() // later
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -128,7 +120,11 @@ fun OsmasticApp() {
 //            when (currentDestination) {
             when (uiState.currentDestination) {
                 AppDestinations.PINLIST -> ScreenLibrary(modifier = Modifier.padding(innerPadding))
-                AppDestinations.MAP -> ScreenMap(modifier = Modifier.padding(innerPadding))
+                AppDestinations.MAP -> ScreenMap(
+                    viewModel = mapViewModel, // WE GIFT YOU YOUR STATE MATE
+                    modifier = Modifier.padding(innerPadding)
+                )
+//                AppDestinations.MAP -> ScreenMap(modifier = Modifier.padding(innerPadding))
                 AppDestinations.CHANNELS -> ScreenChannels(modifier = Modifier.padding(innerPadding))
             }
         }
