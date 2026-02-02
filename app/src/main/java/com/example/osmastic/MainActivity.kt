@@ -19,12 +19,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import com.example.osmastic.ui.theme.OsmasticTheme
 //ight, new ones:
-import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import androidx.lifecycle.viewmodel.compose.viewModel
-import org.osmdroid.util.GeoPoint
 // OSM tiles fix?
 import org.osmdroid.config.Configuration
 import java.io.File
@@ -37,7 +35,6 @@ import androidx.lifecycle.AndroidViewModel
 import kotlin.getValue
 // import db
 import com.example.osmastic.db.AppDatabase
-import com.example.osmastic.db.Pin
 
 // 📥📥📥  MAIN MODEL BATTERY 📥📥📥
 data class StateGlobalModel(

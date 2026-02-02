@@ -1,3 +1,5 @@
+@file:Suppress("COMPOSE_APPLIER_CALL_MISMATCH")
+
 package com.example.osmastic
 
 import android.app.Application
@@ -8,48 +10,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
 //new ones:
-import android.content.Context
-import android.util.Log
 import android.view.MotionEvent
-import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.datastore.core.DataStoreFactory
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.osmastic.db.AppDatabase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
-import java.io.File
 // import our db/mapprefsmanager
 import com.example.osmastic.db.MapPrefsManager
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 // DATASTORE needs these to parse:
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.datastore.preferences.preferencesDataStoreFile
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 
 
 
@@ -109,17 +92,18 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 setMultiTouchControls(true)
 
                 // UPDATING RAM STATE EACH TIME USER RELEASES FINGER - SMART
-                setOnTouchListener { v, event ->
+                setOnTouchListener { fuckingViewValNotNeededForMaps, event -> // TODO rename when calmed down
                     if (event.action == MotionEvent.ACTION_UP) {
                         viewModel.updateMapPosition(
-                            center = org.osmdroid.util.GeoPoint(
+                            center = GeoPoint(
                                 projection.currentCenter.latitude,
                                 projection.currentCenter.longitude
                             ),
                             zoom = zoomLevelDouble
                         )
-                    }
-                    false // ???
+                        fuckingViewValNotNeededForMaps.performClick()
+                        true
+                    } else false // ???
                 }
             }
         },
@@ -146,7 +130,9 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
         modifier = modifier.statusBarsPadding()
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text("Zoom: ${uiState.mapZoom}", fontSize = 14.sp)
             Text("${uiState.mapCenter}", fontSize = 14.sp)
         }
