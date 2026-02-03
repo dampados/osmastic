@@ -80,7 +80,7 @@ class StateMapViewModel(application: Application) : AndroidViewModel(application
         //#2 COLD FLUSH - RELAXED!
         jobStateColdUpdate?.cancel()
         jobStateColdUpdate = viewModelScope.launch {
-            delay(1500L)
+            delay(1000L)
             saveCurrentPosition()
         }
     }
@@ -135,8 +135,6 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                         viewModel.updateMapPosition(newState)
                         return false
                     }
-
-
                 })
                 // CONFIG 🚧🚧🚧
             }
@@ -153,12 +151,10 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 }
                 hasAddedFirstLayoutListener.value = true
             }
-
             // STATE -> VIEW (smart, checks if interactive before recomposition)
-                mapView.controller.setCenter(uiState.mapCenter)
-                mapView.controller.setZoom(uiState.mapZoom)
-                mapView.mapOrientation = uiState.mapRotation
-
+            mapView.mapOrientation = uiState.mapRotation
+            mapView.controller.setCenter(uiState.mapCenter)
+            mapView.controller.setZoom(uiState.mapZoom)
         }
     )
 
