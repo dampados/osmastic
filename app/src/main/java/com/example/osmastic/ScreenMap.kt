@@ -3,6 +3,7 @@
 package com.example.osmastic
 
 import android.app.Application
+import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,13 +34,44 @@ import kotlinx.coroutines.launch
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import org.osmdroid.views.CustomZoomButtonsController
+import kotlin.math.abs
 
+// 🫛🫛🫛🫛🫛🫛🫛 HACKING ZONE
+// we make a subclass of the mapview of the osmdroid so it calls our CALLBACK (reactive design)
+class ObservableMapView(
+    context: Context,
+    private val onMapStateChanged: (StateMapModel) -> Unit // Callback lambda
+) : MapView(context) {
 
+    var isInteractiveUpdate: Boolean = false
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        isInteractiveUpdate = true
+        val result = super.onTouchEvent(event) // 1. OSMDroid does its work
+
+        // 2. RIGHT HERE, work is done. Sample the fresh state.
+        val newState = StateMapModel(
+            mapCenter = this.mapCenter as GeoPoint,
+            mapZoom = this.zoomLevelDouble,
+//            rotation = this.mapOrientation
+        )
+
+        // 3. Emit it via the callback
+        onMapStateChanged(newState)
+        isInteractiveUpdate = false
+
+        return result
+    }
+}
+
+// 🫛🫛🫛🫛🫛🫛🫛 HACKING ZONE
 
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
 data class StateMapModel(
     val mapCenter: GeoPoint = GeoPoint(59.9343, 30.3351), // default loc, SPB
-    val mapZoom: Double = 11.0 // obvious
+    val mapZoom: Double = 11.0, // obvious
+//    val mapRotation: Double = 0.0
 )
 
 class StateMapViewModel(application: Application) : AndroidViewModel(application) {
@@ -63,10 +95,11 @@ class StateMapViewModel(application: Application) : AndroidViewModel(application
         )
     }
     private var saveJob: Job? = null // DECLARE TO CANCEL
-    fun updateMapPosition(center: GeoPoint, zoom: Double) {
+    fun updateMapPosition(incomingState: StateMapModel) {
         _uiState.value = _uiState.value.copy(
-            mapCenter = center,
-            mapZoom   = zoom
+            mapCenter = incomingState.mapCenter,
+            mapZoom   = incomingState.mapZoom,
+//            mapRotation = rotation
         )
         saveJob?.cancel()
         saveJob = viewModelScope.launch {
@@ -85,26 +118,19 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsState()
     val hasAddedFirstLayoutListener = remember { mutableStateOf(false) } // HACK TO SKIP A STEP IN update()
 
-    AndroidView(
+    AndroidView<ObservableMapView>(
         factory = { ctx ->
-            MapView(ctx).apply {
+            ObservableMapView(context = ctx,
+                onMapStateChanged = { newMapState ->
+                    // This lambda runs inside the View! Use `viewModel::`
+                    viewModel.updateMapPosition(newMapState)
+                }
+            ).apply {
+                // CONFIG 🚧🚧🚧
                 setTileSource(TileSourceFactory.MAPNIK )
                 setMultiTouchControls(true)
-
-                // UPDATING RAM STATE EACH TIME USER RELEASES FINGER - SMART
-                setOnTouchListener { fuckingViewValNotNeededForMaps, event -> // TODO rename when calmed down
-                    if (event.action == MotionEvent.ACTION_UP) {
-                        viewModel.updateMapPosition(
-                            center = GeoPoint(
-                                projection.currentCenter.latitude,
-                                projection.currentCenter.longitude
-                            ),
-                            zoom = zoomLevelDouble
-                        )
-                        fuckingViewValNotNeededForMaps.performClick()
-                        true
-                    } else false // ???
-                }
+                zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+                // CONFIG 🚧🚧🚧
             }
         },
         update = { mapView ->
@@ -114,15 +140,28 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 mapView.addOnFirstLayoutListener { _, _, _, _, _ ->
                     viewModel.viewModelScope.launch {
                         val (lat, lon, zoom) = viewModel.mapPrefsManager.getInitialMapPosition()
-                        viewModel.updateMapPosition(GeoPoint(lat, lon), zoom)
+                        viewModel.updateMapPosition(StateMapModel(
+                            GeoPoint(lat, lon),
+                            zoom))
                     }
                 }
                 hasAddedFirstLayoutListener.value = true
             }
 
-            // STATE -> VIEW
-            mapView.controller.setCenter(uiState.mapCenter)
-            mapView.controller.setZoom(uiState.mapZoom)
+            // STATE -> VIEW (smart, checks if interactive before recomposition)
+//            if (mapView.mapCenter != uiState.mapCenter) {
+//                mapView.controller.setCenter(uiState.mapCenter) // zoom
+//                mapView.controller.setZoom(uiState.mapZoom)
+//            }
+            val centerEpsilon = 0.001 // ~0.1 meters
+            val latDiff = abs(mapView.mapCenter.latitude - uiState.mapCenter.latitude)
+            val lonDiff = abs(mapView.mapCenter.longitude - uiState.mapCenter.longitude)
+
+            if (latDiff > centerEpsilon || lonDiff > centerEpsilon) {
+                mapView.controller.setCenter(uiState.mapCenter)
+                mapView.controller.setZoom(uiState.mapZoom)
+            }
+
         }
     )
 
