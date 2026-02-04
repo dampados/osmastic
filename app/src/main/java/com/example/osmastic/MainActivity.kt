@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -95,6 +96,10 @@ fun OsmasticApp() {
     val mapViewModel: StateMapViewModel = viewModel() // MAP
 //    val libraryViewModel: StateLibraryViewModel = viewModel()   // later
 //    val channelsViewModel: StateChannelsViewModel = viewModel() // later
+    val pagerState = rememberPagerState(                    // TRACKING CHOSEN SCREEN
+        initialPage = uiState.currentDestination.ordinal,
+        pageCount = { AppDestinations.entries.size }
+    )
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -113,8 +118,10 @@ fun OsmasticApp() {
             }
         }
     ) {
+
+
+
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-//            when (currentDestination) {
             when (uiState.currentDestination) {
                 AppDestinations.PINLIST -> ScreenLibrary(modifier = Modifier.padding(innerPadding))
                 AppDestinations.MAP -> ScreenMap(
@@ -125,6 +132,7 @@ fun OsmasticApp() {
                 AppDestinations.CHANNELS -> ScreenChannels(modifier = Modifier.padding(innerPadding))
             }
         }
+
     }
 }
 
