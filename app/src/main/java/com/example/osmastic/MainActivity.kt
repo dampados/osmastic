@@ -96,10 +96,7 @@ fun OsmasticApp() {
     val mapViewModel: StateMapViewModel = viewModel() // MAP
 //    val libraryViewModel: StateLibraryViewModel = viewModel()   // later
 //    val channelsViewModel: StateChannelsViewModel = viewModel() // later
-    val pagerState = rememberPagerState(                    // TRACKING CHOSEN SCREEN
-        initialPage = uiState.currentDestination.ordinal,
-        pageCount = { AppDestinations.entries.size }
-    )
+
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
