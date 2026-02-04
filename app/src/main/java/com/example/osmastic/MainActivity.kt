@@ -7,7 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -33,6 +32,10 @@ import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Map
 import androidx.lifecycle.AndroidViewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import kotlin.getValue
 // import db
 import com.example.osmastic.db.AppDatabase
@@ -97,41 +100,77 @@ fun OsmasticApp() {
 //    val libraryViewModel: StateLibraryViewModel = viewModel()   // later
 //    val channelsViewModel: StateChannelsViewModel = viewModel() // later
 
+    // UI STATE PROPER NAVCONTROLLER IGNORE
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            AppDestinations.entries.forEach {
+            AppDestinations.entries.forEach { destination ->
                 item(
-                    icon = {
-                        Icon(
-                            it.icon,
-                            contentDescription = it.label
-                        )
-                    },
-                    label = { Text(it.label) },
-                    selected = it == uiState.currentDestination,  // ← CHANGE HERE
-                    onClick = { appViewModel.navigateTo(it) }
+                    icon = { Icon(destination.icon, destination.label) },
+                    label = { Text(destination.label) },
+                    selected = currentDestination?.route == destination.name,
+                    onClick = {
+                        // ONE LINE: navigate to enum name
+                        navController.navigate(destination.name)
+                    }
                 )
             }
         }
-    ) {
-
-
-
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            when (uiState.currentDestination) {
-                AppDestinations.PINLIST -> ScreenLibrary(modifier = Modifier.padding(innerPadding))
-                AppDestinations.MAP -> ScreenMap(
-                    viewModel = mapViewModel, // WE GIFT YOU YOUR STATE MATE
-                    modifier = Modifier.padding(innerPadding)
-                )
-//                AppDestinations.MAP -> ScreenMap(modifier = Modifier.padding(innerPadding))
-                AppDestinations.CHANNELS -> ScreenChannels(modifier = Modifier.padding(innerPadding))
+    ) { // innerPadding ->
+        // 4. NavHost with your 3 screens
+        NavHost(
+            navController = navController,
+            startDestination = AppDestinations.MAP.name,
+//            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Each screen by enum name
+            composable(AppDestinations.PINLIST.name) {
+                ScreenLibrary(Modifier.fillMaxSize())
+            }
+            composable(AppDestinations.MAP.name) {
+                ScreenMap(viewModel = mapViewModel, Modifier.fillMaxSize())
+            }
+            composable(AppDestinations.CHANNELS.name) {
+                ScreenChannels(Modifier.fillMaxSize())
             }
         }
-
     }
-}
+
+//    NavigationSuiteScaffold(
+//        navigationSuiteItems = {
+//            AppDestinations.entries.forEach {
+//                item(
+//                    icon = {
+//                        Icon(
+//                            it.icon,
+//                            contentDescription = it.label
+//                        )
+//                    },
+//                    label = { Text(it.label) },
+//                    selected = it == uiState.currentDestination,  // ← CHANGE HERE
+//                    onClick = { appViewModel.navigateTo(it) }
+//                )
+//            }
+//        }
+//    ) {
+//        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+//            when (uiState.currentDestination) {
+//                AppDestinations.PINLIST -> ScreenLibrary(modifier = Modifier.padding(innerPadding))
+//                AppDestinations.MAP -> ScreenMap(
+//                    viewModel = mapViewModel, // WE GIFT YOU YOUR STATE MATE
+//                    modifier = Modifier.padding(innerPadding)
+//                )
+////                AppDestinations.MAP -> ScreenMap(modifier = Modifier.padding(innerPadding))
+//                AppDestinations.CHANNELS -> ScreenChannels(modifier = Modifier.padding(innerPadding))
+//            }
+//        }
+//
+//    }
+} //OSMASTIC APP CLASS FINISHING BRACKET
 
 enum class AppDestinations(
     val label: String,
