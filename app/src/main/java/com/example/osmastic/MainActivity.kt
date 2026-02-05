@@ -6,7 +6,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
@@ -30,7 +32,6 @@ import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Map
 import androidx.lifecycle.AndroidViewModel
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -68,10 +69,9 @@ class StateGlobalViewModel(application: Application) : AndroidViewModel(applicat
 
 
     // ➡️➡️➡️ INTERACTIVE
-
-//    fun navigateTo(destination: AppDestinations) { // TODO obsolete
-//        _uiState.value = _uiState.value.copy(currentDestination = destination)
-//    }
+    fun navigateTo(destination: AppDestinations) {
+        _uiState.value = _uiState.value.copy(currentDestination = destination)
+    }
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 MAIN MODEL BATTERY 📥📥📥
@@ -92,8 +92,8 @@ class MainActivity : ComponentActivity() {
 @PreviewScreenSizes
 @Composable
 fun OsmasticApp() {
-//    val appViewModel: StateGlobalViewModel = viewModel()
-//    val uiState by appViewModel.uiState.collectAsState() // todo not needed YET, important
+    val appViewModel: StateGlobalViewModel = viewModel()
+    val uiState by appViewModel.uiState.collectAsState()
 
     // STATES !!! keep em all on the same level and context as NS:
     val mapViewModel: StateMapViewModel = viewModel() // MAP
@@ -113,19 +113,14 @@ fun OsmasticApp() {
                     label = { Text(destination.label) },
                     selected = currentDestination?.route == destination.name,
                     onClick = {
-//                        navController.navigate(destination.name)
-                        navController.navigate(destination.name) {
-                            launchSingleTop = true
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            restoreState = true
-                        }
+                        // ONE LINE: navigate to enum name
+                        navController.navigate(destination.name)
                     }
                 )
             }
         }
     ) { // innerPadding ->
+        // 4. NavHost with your 3 screens
         NavHost(
             navController = navController,
             startDestination = AppDestinations.MAP.name,
