@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Map
 import androidx.lifecycle.AndroidViewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -114,7 +115,14 @@ fun OsmasticApp() {
                     selected = currentDestination?.route == destination.name,
                     onClick = {
                         // ONE LINE: navigate to enum name
-                        navController.navigate(destination.name)
+                        navController.navigate(destination.name) {
+                            // These 3 lines are the key to keeping your screen state in RAM
+                            launchSingleTop = true
+                            restoreState = true
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                        }
                     }
                 )
             }
