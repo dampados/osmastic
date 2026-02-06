@@ -3,6 +3,8 @@
 package com.example.osmastic
 
 import android.app.Application
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,6 +18,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -30,6 +33,8 @@ import com.example.osmastic.db.MapPrefsManager
 import kotlinx.coroutines.launch
 // DATASTORE needs these to parse:
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import org.osmdroid.views.CustomZoomButtonsController
@@ -37,6 +42,7 @@ import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
+import org.osmdroid.views.overlay.Marker
 // manual import for rotation support
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
 import kotlin.math.abs
@@ -73,7 +79,6 @@ class StateMapViewModel(application: Application) : AndroidViewModel(application
         jobStateUpdate = viewModelScope.launch {
             delay(200L)
             val currentState = _uiState.value
-//            if (isEqual(currentState, incomingState)) return@launch // break lambda call if TRUE
             _uiState.value = incomingState.copy()
         }
 
@@ -84,77 +89,106 @@ class StateMapViewModel(application: Application) : AndroidViewModel(application
             saveCurrentPosition()
         }
     }
-
-    private fun isEqual(a: StateMapModel, b: StateMapModel): Boolean {
-        val centerEpsilon = 1e-5
-        val zoomEpsilon   = 1e-4
-        return abs(a.mapCenter.latitude  - b.mapCenter.latitude)  < centerEpsilon &&
-                abs(a.mapCenter.longitude - b.mapCenter.longitude) < centerEpsilon &&
-                abs(a.mapZoom - b.mapZoom) < zoomEpsilon
-    }
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
 
+// ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
+class OsmdroidManager(context: Context,                 // CLASS WRAPPER AROUND THE MapView !!!
+                      private val onMapMovedCallback: (StateMapModel) -> Unit, // SIMPLE CALLBACK! TO HERE WE PLACE LATER WHAT WILL UPDATE BOTH HOT + COLD!
+                      private val onMapReadyCallback: suspend () -> StateMapModel // SIMPLE CALLBACK! we put cold state loading call!!! on the event afer which its safe
+    ) {
+    private val mapView: MapView // OUTSOURCED MAPVIEW !!!
+
+    init { // FACTORY ONE TIME INSTANTIATION
+        mapView = MapView(context).apply {
+            // CONFIG 🚧🚧🚧
+            setTileSource(TileSourceFactory.MAPNIK )
+            setMultiTouchControls(true)
+            setUseDataConnection(true)
+            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+
+            val rotationOverlay = RotationGestureOverlay(this)
+            rotationOverlay.isEnabled = true
+            overlays.add(rotationOverlay)
+
+            // VIEW -> MODEL (bottom -> top) UPDATE
+            addMapListener(object : MapListener {
+                override fun onScroll(event: ScrollEvent?): Boolean {
+                    val newState = StateMapModel(
+                        mapCenter = GeoPoint(this@apply.mapCenter.latitude, this@apply.mapCenter.longitude),
+                        mapZoom = this@apply.zoomLevelDouble,
+                        mapRotation = this@apply.mapOrientation,
+                    )
+//                    viewModel.updateMapPosition(newState)
+                    onMapMovedCallback(newState)
+                    return false
+                }
+                override fun onZoom(event: ZoomEvent?): Boolean {
+                    val newState = StateMapModel(
+                        mapCenter = GeoPoint(this@apply.mapCenter.latitude, this@apply.mapCenter.longitude),
+                        mapZoom = this@apply.zoomLevelDouble,
+                        mapRotation = this@apply.mapOrientation,
+                    )
+//                    viewModel.updateMapPosition(newState)
+                    onMapMovedCallback(newState)
+                    return false
+                }
+            })
+
+            addOnFirstLayoutListener { _, _, _, _, _ ->
+                CoroutineScope(Dispatchers.Main).launch {
+                    val coldState = onMapReadyCallback() // ACTUALLY READ -> business logic viewmodel -> come back here
+                    setViewport(coldState) // LOCAL ONLY
+                }
+            }
+            // CONFIG 🚧🚧🚧
+        }
+    }
+
+    fun getMapView(): MapView = mapView // Factory calls this
+
+    fun setViewport(incomingState: StateMapModel) {
+        mapView.mapOrientation = incomingState.mapRotation
+        mapView.controller.setCenter(incomingState.mapCenter)
+        mapView.controller.setZoom(incomingState.mapZoom)
+    }
+
+}
+// ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
+
 @Composable
 fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsState()
-    val hasAddedFirstLayoutListener = remember { mutableStateOf(false) } // HACK TO SKIP A STEP IN update()
+//    val hasAddedFirstLayoutListener = remember { mutableStateOf(false) } // HACK TO SKIP A STEP IN update()
 
     AndroidView<MapView>(
         factory = { ctx ->
-            MapView(ctx).apply {
-
-                // CONFIG 🚧🚧🚧
-                setTileSource(TileSourceFactory.MAPNIK )
-                setMultiTouchControls(true)
-                setUseDataConnection(true)
-                zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-
-                val rotationOverlay = RotationGestureOverlay(this)
-                rotationOverlay.isEnabled = true
-                overlays.add(rotationOverlay)
-
-                // VIEW -> MODEL (bottom -> top) UPDATE
-                addMapListener(object : MapListener {
-                    override fun onScroll(event: ScrollEvent?): Boolean {
-                        val newState = StateMapModel(
-                            mapCenter = GeoPoint(this@apply.mapCenter.latitude, this@apply.mapCenter.longitude),
-                            mapZoom = this@apply.zoomLevelDouble,
-                            mapRotation = this@apply.mapOrientation,
-                        )
-                        viewModel.updateMapPosition(newState)
-                        return false
-                    }
-                    override fun onZoom(event: ZoomEvent?): Boolean {
-                        val newState = StateMapModel(
-                            mapCenter = GeoPoint(this@apply.mapCenter.latitude, this@apply.mapCenter.longitude),
-                            mapZoom = this@apply.zoomLevelDouble,
-                            mapRotation = this@apply.mapOrientation,
-                        )
-                        viewModel.updateMapPosition(newState)
-                        return false
-                    }
-                })
-                // CONFIG 🚧🚧🚧
-            }
+            OsmdroidManager(ctx,
+                onMapMovedCallback = { viewModel.updateMapPosition(it) },
+                onMapReadyCallback = {
+                    val coldState = viewModel.mapPrefsManager.getInitialMapPosition()
+                    viewModel.updateMapPosition(coldState)
+                    coldState // we return it back! CALLBACK HELL HAHAHAHH
+                },
+                ).getMapView()
         },
         update = { mapView ->
 
             //COLD STORAGE -> STATE (hack)
-            if (!hasAddedFirstLayoutListener.value) {
-                mapView.addOnFirstLayoutListener { _, _, _, _, _ ->
-                    viewModel.viewModelScope.launch {
-                        val coldState = viewModel.mapPrefsManager.getInitialMapPosition()
-                        viewModel.updateMapPosition(coldState) // HAHAHA just pass the state, dear
-                    }
-                }
-                hasAddedFirstLayoutListener.value = true
-            }
+//            if (!hasAddedFirstLayoutListener.value) {
+//                mapView.addOnFirstLayoutListener { _, _, _, _, _ ->
+//                    viewModel.viewModelScope.launch {
+//                        val coldState = viewModel.mapPrefsManager.getInitialMapPosition()
+//                        viewModel.updateMapPosition(coldState) // HAHAHA just pass the state, dear
+//                    }
+//                }
+//                hasAddedFirstLayoutListener.value = true
+//            }
             // STATE -> VIEW (smart, checks if interactive before recomposition)
-            mapView.mapOrientation = uiState.mapRotation
-            mapView.controller.setCenter(uiState.mapCenter)
-            mapView.controller.setZoom(uiState.mapZoom)
+//            mapView.mapOrientation = uiState.mapRotation
+//            mapView.controller.setCenter(uiState.mapCenter)
+//            mapView.controller.setZoom(uiState.mapZoom)
         }
     )
 

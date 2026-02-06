@@ -70,9 +70,6 @@ class StateGlobalViewModel(application: Application) : AndroidViewModel(applicat
 
 
     // ➡️➡️➡️ INTERACTIVE
-    fun navigateTo(destination: AppDestinations) {
-        _uiState.value = _uiState.value.copy(currentDestination = destination)
-    }
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 MAIN MODEL BATTERY 📥📥📥
