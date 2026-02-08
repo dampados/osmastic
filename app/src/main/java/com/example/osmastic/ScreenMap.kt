@@ -16,9 +16,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -42,10 +39,8 @@ import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
-import org.osmdroid.views.overlay.Marker
 // manual import for rotation support
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
-import kotlin.math.abs
 
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
 data class StateMapModel(
@@ -78,7 +73,7 @@ class StateMapViewModel(application: Application) : AndroidViewModel(application
         jobStateUpdate?.cancel()
         jobStateUpdate = viewModelScope.launch {
             delay(200L)
-            val currentState = _uiState.value
+//            val currentState = _uiState.value
             _uiState.value = incomingState.copy()
         }
 
@@ -160,7 +155,6 @@ class OsmdroidManager(context: Context,                 // CLASS WRAPPER AROUND 
 @Composable
 fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsState()
-//    val hasAddedFirstLayoutListener = remember { mutableStateOf(false) } // HACK TO SKIP A STEP IN update()
 
     AndroidView<MapView>(
         factory = { ctx ->
@@ -173,23 +167,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 },
                 ).getMapView()
         },
-        update = { mapView ->
-
-            //COLD STORAGE -> STATE (hack)
-//            if (!hasAddedFirstLayoutListener.value) {
-//                mapView.addOnFirstLayoutListener { _, _, _, _, _ ->
-//                    viewModel.viewModelScope.launch {
-//                        val coldState = viewModel.mapPrefsManager.getInitialMapPosition()
-//                        viewModel.updateMapPosition(coldState) // HAHAHA just pass the state, dear
-//                    }
-//                }
-//                hasAddedFirstLayoutListener.value = true
-//            }
-            // STATE -> VIEW (smart, checks if interactive before recomposition)
-//            mapView.mapOrientation = uiState.mapRotation
-//            mapView.controller.setCenter(uiState.mapCenter)
-//            mapView.controller.setZoom(uiState.mapZoom)
-        }
+        update = { /* nothing here - not using native MVVM updates */  }
     )
 
     Box(
