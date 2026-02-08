@@ -4,6 +4,7 @@ package com.example.osmastic
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
@@ -134,6 +135,7 @@ class OsmdroidManager(context: Context,                 // CLASS WRAPPER AROUND 
             addOnFirstLayoutListener { _, _, _, _, _ ->
                 CoroutineScope(Dispatchers.Main).launch {
                     val coldState = onMapReadyCallback() // ACTUALLY READ -> business logic viewmodel -> come back here
+                    Log.d("MAP_TEST", "Osmdroid says center: ${mapView.mapCenter}, Visual center: ${mapView.projection.fromPixels(mapView.width/2, mapView.height/2)}")
                     setViewport(coldState) // LOCAL ONLY
                 }
             }
@@ -144,11 +146,19 @@ class OsmdroidManager(context: Context,                 // CLASS WRAPPER AROUND 
     fun getMapView(): MapView = mapView // Factory calls this
 
     fun setViewport(incomingState: StateMapModel) {
-        mapView.mapOrientation = incomingState.mapRotation
-        mapView.controller.setCenter(incomingState.mapCenter)
-        mapView.controller.setZoom(incomingState.mapZoom)
-    }
+//        mapView.controller.setCenter(incomingState.mapCenter)
+//        mapView.controller.setZoom(incomingState.mapZoom)
+//        mapView.mapOrientation = incomingState.mapRotation
 
+        mapView.controller.animateTo(
+            incomingState.mapCenter,
+            incomingState.mapZoom,
+            0,
+            incomingState.mapRotation,
+//            0  // 0ms = instant
+        )
+
+    }
 }
 // ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
 
@@ -180,6 +190,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             Text("Zoom: ${uiState.mapZoom}", fontSize = 14.sp)
             Text("${uiState.mapCenter}", fontSize = 14.sp)
             Text("${uiState.mapRotation}", fontSize = 14.sp)
+//            Text("Center: ${viewModel.uiState.mapCenter.latitude}, ${viewModel.uiState.mapCenter.longitude}")
 
         }
     }
