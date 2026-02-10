@@ -94,7 +94,8 @@ fun OsmasticApp() {
     val uiState by appViewModel.uiState.collectAsState()
 
     // STATES !!! keep em all on the same level and context as NS:
-    val mapViewModel: StateMapViewModel = viewModel() // MAP
+//    val mapViewModel: StateMapViewModel = viewModel() // MAP
+    val mapViewModelU: StateMapViewModelU = viewModel() // MAP2
 //    val libraryViewModel: StateLibraryViewModel = viewModel()   // later
 //    val channelsViewModel: StateChannelsViewModel = viewModel() // later
 
@@ -136,8 +137,11 @@ fun OsmasticApp() {
             composable(AppDestinations.PINLIST.name) {
                 ScreenLibrary(Modifier.fillMaxSize())
             }
+//            composable(AppDestinations.MAP.name) {
+//                ScreenMap(viewModel = mapViewModel, Modifier.fillMaxSize())
+//            }
             composable(AppDestinations.MAP.name) {
-                ScreenMap(viewModel = mapViewModel, Modifier.fillMaxSize())
+                ScreenMapU(viewModel = mapViewModelU, Modifier.fillMaxSize())
             }
             composable(AppDestinations.CHANNELS.name) {
                 ScreenChannels(Modifier.fillMaxSize())

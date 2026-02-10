@@ -80,4 +80,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     // datastore from jetpack compose for shared prefs
     implementation("androidx.datastore:datastore-preferences:1.1.0")
+    // MAP LIBRE NORMAL MAP
+    implementation("org.maplibre.compose:maplibre-compose-android:0.12.1")
+    implementation("org.maplibre.compose:maplibre-compose-material3:0.12.1")
 }
