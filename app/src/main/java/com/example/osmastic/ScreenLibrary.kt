@@ -49,16 +49,16 @@ fun ScreenLibrary(modifier: Modifier = Modifier) {
         Button(
             onClick = {
                 scope.launch(Dispatchers.IO) {
-                    val testPin = Pin(
-                        id = Random.nextInt(1000, 9999),
-                        lamportEpoch = 0,
-                        editorHash = byteArrayOf(1, 2, 3, 4, 5),
-                        latitude = 5555555,
-                        longitude = 6666666,
-                        iconType = 0x1F4CD,
-                        label = "Test Pin ${System.currentTimeMillis() % 1000}"
-                    )
-                    viewModel.pinDao.insertAndReturnId(testPin)
+//                    val testPin = Pin(
+//                        id = Random.nextInt(1000, 9999),
+////                        lamportEpoch = 0,
+////                        editorHash = byteArrayOf(1, 2, 3, 4, 5),
+////                        latitude = 5555555,
+////                        longitude = 6666666,
+////                        iconType = 0x1F4CD,
+////                        label = "Test Pin ${System.currentTimeMillis() % 1000}"
+////                    )
+//                    viewModel.pinDao.insertAndReturnId(testPin)
                 }
             }
         ) {
