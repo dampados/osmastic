@@ -32,17 +32,15 @@ import org.maplibre.compose.map.OrnamentOptions
 import org.maplibre.compose.style.BaseStyle
 
 data class PinHot(
-    val id: Int,
+    val pinLogicalId: Int,
     val lamportEpoch: Int,
     val editorHash: ByteArray,
-    val position: Position,          // MapLibre's type
-    val iconUnicode: Int? = null,
-    val isDeleted: Boolean = false,
-//    val rotationDegrees: Int? = null,
-//    val lengthMeters: Int? = null,
+    val position: Position, // full maplibre postion for simplicity
+    val iconUnicode: Int = 0x1F4CD,
     val label: String? = null,
-    val timeToLiveSeconds: Int? = null
-) {}
+    val isHiddenBeforeTTL: Boolean = false, // 1 byte
+    val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
+)
 
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
 data class StateMapModelU(
@@ -51,9 +49,10 @@ data class StateMapModelU(
         zoom = 11.0,
         bearing = 0.0, // rotation
         tilt = 0.0,
-    )
-
-    //TODO add list of pins HOT PINS
+    ),
+    val pins: List<PinHot> = emptyList()
+//    val newState = state.copy(pins = state.pins + newPin) // THATS HOW TO COPY
+//    _pins.update { it + newPin }                          // THATS HOW TO UPDATE
 )
 class StateMapViewModelU(application: Application) : AndroidViewModel(application) {
     val mapPrefsManager: MapPrefsManager by lazy {
@@ -145,19 +144,9 @@ fun ScreenMapU(viewModel: StateMapViewModelU, modifier: Modifier = Modifier) {
                 padding = PaddingValues(top = 15.dp)
             )
         )
-                ) {
+    ) {
 
-                //        Marker(
-//            position = LatLng(59.93, 30.33),
-//            title = "Test Marker",
-//            snippet = "Hello",
-////            icon = painterResource(R.drawable.my_pin),
-//            onClick = { true }
-//        )
-
-                // 1. Future Pin (Annotation) layers will go here
-                // 2. Example: AnnotationLayer(annotationPlugin) { ... }
-            }
+    }
 
 }
 

@@ -11,7 +11,7 @@ data class PinEntity(
     val editorHash: ByteArray, // 3 byte FIXED, not varint
     val latitude: Int,  // 32 bytes full, but shrinked to 24 for meshtastic
     val longitude: Int, // 32 bytes full, but shrinked to 24 for meshtastic
-    val iconUnicode: Int, // 4 byte max
+    val iconUnicode: Int = 0x1F4CD, // 4 byte max
     val label: String? = null, // max 41 byte, first byte - LENGTH
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
     val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
