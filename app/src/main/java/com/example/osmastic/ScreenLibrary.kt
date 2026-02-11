@@ -68,40 +68,40 @@ fun ScreenLibrary(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(8.dp))
 
         // DELETE ALL button
-        Button(
-            onClick = {
-                scope.launch(Dispatchers.IO) {
-                    val allPins = viewModel.pinDao.getAll()
-                    allPins.forEach { pin ->
-                        viewModel.pinDao.delete(pin)
-                    }
-                }
-            }
-        ) {
-            Text("Delete All Pins")
-        }
+//        Button(
+//            onClick = {
+//                scope.launch(Dispatchers.IO) {
+//                    val allPins = viewModel.pinDao.getAll()
+//                    allPins.forEach { pin ->
+//                        viewModel.pinDao.delete(pin)
+//                    }
+//                }
+//            }
+//        ) {
+//            Text("Delete All Pins")
+//        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+//        Spacer(modifier = Modifier.height(16.dp))
 
         // Display pins (simpler version)
-        val pins by produceState<List<Pin>>(initialValue = emptyList()) {
-            scope.launch(Dispatchers.IO) {
-                while (true) {
-                    value = viewModel.pinDao.getAll()
-                    delay(1000)
-                }
-            }
-        }
+//        val pins by produceState<List<Pin>>(initialValue = emptyList()) {
+//            scope.launch(Dispatchers.IO) {
+//                while (true) {
+//                    value = viewModel.pinDao.getAll()
+//                    delay(1000)
+//                }
+//            }
+//        }
 
-        Text("Total Pins: ${pins.size}", fontSize = 18.sp)
-
-        LazyColumn {
-            items(pins) { pin ->
-                Text(
-                    text = "📍 ${pin.label ?: "Unnamed"}",
-                    modifier = Modifier.padding(4.dp)
-                )
-            }
-        }
+//        Text("Total Pins: ${pins.size}", fontSize = 18.sp)
+//
+//        LazyColumn {
+//            items(pins) { pin ->
+//                Text(
+//                    text = "📍 ${pin.label ?: "Unnamed"}",
+//                    modifier = Modifier.padding(4.dp)
+//                )
+//            }
+//        }
     }
 }
