@@ -3,8 +3,8 @@ package com.example.osmastic.db
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "pins")
-data class PinEntity(
+@Entity(tableName = "pin")
+data class Pin(
     @PrimaryKey(autoGenerate = true) val internalId: Long = 0,  // auto-increment, NEVER SENT
     val pinLogicalId: Int, // 1-3 bytes varint ENOUGH (no sense to generate 4-5 byte integers)
     val lamportEpoch: Int, // 1-4 bytes varint for infinite pins updates (cheap anyway)
@@ -22,7 +22,7 @@ data class PinEntity(
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as PinEntity
+        other as Pin
 
         if (pinLogicalId != other.pinLogicalId) return false
         if (lamportEpoch != other.lamportEpoch) return false

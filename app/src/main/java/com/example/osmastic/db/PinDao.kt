@@ -19,7 +19,7 @@ interface PinDao {
     suspend fun getAll(): List<Pin>
 
     // GET ONE: Get a pin by its ID
-    @Query("SELECT * FROM pin WHERE id = :id LIMIT 1")
+    @Query("SELECT * FROM pin WHERE pinLogicalId = :id LIMIT 1")
     suspend fun getById(id: Int): Pin?
 
     // UPDATE ONE: Update an existing pin
