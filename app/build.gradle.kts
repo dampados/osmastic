@@ -81,6 +81,19 @@ dependencies {
     // datastore from jetpack compose for shared prefs
     implementation("androidx.datastore:datastore-preferences:1.1.0")
     // MAP LIBRE NORMAL MAP
-    implementation("org.maplibre.compose:maplibre-compose-android:0.12.1")
-    implementation("org.maplibre.compose:maplibre-compose-material3:0.12.1")
+//    implementation("org.maplibre.compose:maplibre-compose-android:0.12.1")
+//    implementation("org.maplibre.compose:maplibre-compose-material3:0.12.1")
+    implementation("com.dayanruben.maplibre-compose:maplibre-compose-android:0.6.21")
+    implementation("com.dayanruben.maplibre-compose:maplibre-compose-material3:0.6.21")
+}
+
+configurations.all {
+    resolutionStrategy {
+        dependencySubstitution {
+            // Replace debug variant with release variant
+            substitute(module("com.dayanruben.maplibre-compose:maplibre-compose-android-debug"))
+                .using(module("com.dayanruben.maplibre-compose:maplibre-compose-android:0.6.21"))
+                .because("Debug variant conflicts with release")
+        }
+    }
 }

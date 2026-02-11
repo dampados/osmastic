@@ -2,12 +2,10 @@ package com.example.osmastic.db
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
-//import com.example.osmastic.StateMapModel
+import com.dayanruben.maplibrecompose.core.CameraPosition
+import com.dayanruben.spatialk.geojson.Position
 import com.example.osmastic.StateMapModelU
 import kotlinx.coroutines.flow.first
-import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.spatialk.geojson.Position
-import org.osmdroid.util.GeoPoint
 
 class MapPrefsManager(private val dataStore: DataStore<Preferences>) {
     // Keys

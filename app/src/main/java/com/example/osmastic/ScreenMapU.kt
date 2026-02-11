@@ -1,20 +1,29 @@
 package com.example.osmastic
 
 import android.app.Application
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.spatialk.geojson.Position
+import com.dayanruben.maplibrecompose.compose.ClickResult
+import com.dayanruben.maplibrecompose.compose.MaplibreMap
+import com.dayanruben.maplibrecompose.compose.rememberCameraState
+import com.dayanruben.maplibrecompose.core.CameraPosition
+import com.dayanruben.maplibrecompose.core.OrnamentSettings
+import com.dayanruben.spatialk.geojson.Position
 import com.example.osmastic.db.MapPrefsManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,17 +32,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.maplibre.android.annotations.Marker
-import org.maplibre.android.geometry.LatLng
-import org.maplibre.compose.camera.rememberCameraState
-import org.maplibre.compose.map.MapOptions
-import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.map.OrnamentOptions
-import org.maplibre.compose.style.BaseStyle
-
+import kotlin.random.Random
+//IM TIRED
 data class PinHot(
     val pinLogicalId: Int,
-    val lamportEpoch: Int,
+    val lamportEpoch: Int = 1,
     val editorHash: ByteArray,
     val position: Position, // full maplibre postion for simplicity
     val iconUnicode: Int = 0x1F4CD,
@@ -41,7 +44,6 @@ data class PinHot(
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
     val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
 )
-
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
 data class StateMapModelU(
     val cameraPosition: CameraPosition = CameraPosition(
@@ -51,8 +53,6 @@ data class StateMapModelU(
         tilt = 0.0,
     ),
     val pins: List<PinHot> = emptyList()
-//    val newState = state.copy(pins = state.pins + newPin) // THATS HOW TO COPY
-//    _pins.update { it + newPin }                          // THATS HOW TO UPDATE
 )
 class StateMapViewModelU(application: Application) : AndroidViewModel(application) {
     val mapPrefsManager: MapPrefsManager by lazy {
@@ -65,7 +65,7 @@ class StateMapViewModelU(application: Application) : AndroidViewModel(applicatio
     private val _mapStateRW = MutableStateFlow(StateMapModelU()) // RW, but private!
     val mapStateR: StateFlow<StateMapModelU> = _mapStateRW.asStateFlow() // readonly!
 
-    // COLD BOOT !!! load cold state
+    // 🚀🚀🚀 COLD BOOT !!! load cold state 🚀🚀🚀
     init {
         viewModelScope.launch {
             val coldViewPortPrefs = mapPrefsManager.getInitialMapPosition()
@@ -75,6 +75,7 @@ class StateMapViewModelU(application: Application) : AndroidViewModel(applicatio
             }
         }
     }
+    // 🚀🚀🚀 COLD BOOT !!! load cold state 🚀🚀🚀
 
     // 🤫🤫🤫 INTERACTIVE PRIVATE 🤫🤫🤫
     suspend fun saveCurrentPosition() {
@@ -103,6 +104,18 @@ class StateMapViewModelU(application: Application) : AndroidViewModel(applicatio
             saveCurrentPosition()
         }
     }
+
+    fun pushQuickPin(incomingPosition: Position) {
+        val myEditorHash: ByteArray = ByteArray(3).apply { Random.nextBytes(this) }
+        val newPin = PinHot(
+            pinLogicalId = Random.nextInt(1_000_000, 2_000_000_000),
+            editorHash = myEditorHash,
+            position = incomingPosition,
+        )
+        _mapStateRW.update { current ->
+            current.copy(pins = current.pins + newPin)
+        }
+    }
     // ➡️➡️➡️ INTERACTIVE ➡️➡️➡️
 }
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
@@ -123,30 +136,79 @@ fun ScreenMapU(viewModel: StateMapViewModelU, modifier: Modifier = Modifier) {
     LaunchedEffect(cameraState) {
         snapshotFlow { cameraState.position }
             .collect { incomingViewPort ->
-//                val newState = StateMapModelU(cameraPosition = incomingViewPort)
                 viewModel.updateViewPortState(incomingViewPort)
             }
     }
     //🎥🎥🎥 EFFECTS, OBSERVERS 🎥🎥🎥
 
-    // <call composables HERE>
-
     MaplibreMap(
         modifier = modifier,
-        // Free OSM tiles (requires internet and attribution)
-        baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
+        styleUri = "https://tiles.openfreemap.org/styles/liberty",
         cameraState = cameraState,
-        options = MapOptions(
-            ornamentOptions = OrnamentOptions(
-                isLogoEnabled = false,          // hides MapLibre logo
-                isCompassEnabled = true,
-                isScaleBarEnabled = true,
-                padding = PaddingValues(top = 15.dp)
-            )
-        )
-    ) {
+        ornamentSettings = OrnamentSettings(
+            isLogoEnabled = false,
+            isCompassEnabled = true,
+            isScaleBarEnabled = true,
+            padding = PaddingValues(top = 25.dp)
+        ),
+        onMapClick = { position, _ ->
+            viewModel.pushQuickPin(position)
+            ClickResult.Consume
+        }
+    )  { // CONTENT OF THE MAP (SPECIAL FUNCS)
+
+        val pins = stateOfModel.pins   // ← this is all you need
+
+        // THIS IS CORRECT SYNTAX FOR 0.12.1
+//        GeoJsonSource(
+//            id = "pins-source",
+//            data = FeatureCollection.fromFeatures(
+//                pins.map { pin ->
+//                    Feature.fromGeometry(
+//                        Point.fromLngLat(
+//                            pin.position.longitude,
+//                            pin.position.latitude
+//                        )
+//                    ).apply {
+//                        addStringProperty("label", pin.label ?: "")
+//                        addNumberProperty("icon", pin.iconUnicode.toDouble())
+//                    }
+//                }
+//            )
+//        )
+//
+//        // THIS IS CORRECT SYNTAX FOR 0.12.1
+//        SymbolLayer(
+//            id = "pins-layer",
+//            sourceId = "pins-source"
+//        ) {
+//            textField("{icon}\n{label}")
+//            textSize(32f)
+//            textLineHeight(1.25f)
+//            textAllowOverlap(true)
+//            textIgnorePlacement(true)
+//            textAnchor(TextAnchor.TOP)
+//        }
 
     }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier.statusBarsPadding()
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Zoom: ${stateOfModel.cameraPosition.zoom}", fontSize = 14.sp)
+            Text("${stateOfModel.cameraPosition.target}", fontSize = 14.sp)
+            Text("${stateOfModel.cameraPosition.bearing}", fontSize = 14.sp)
+            Text("${stateOfModel.pins}", fontSize = 6.sp)
+//            Text("Center: ${viewModel.uiState.mapCenter.latitude}, ${viewModel.uiState.mapCenter.longitude}")
+
+        }
+    }
+
+
 
 }
 
