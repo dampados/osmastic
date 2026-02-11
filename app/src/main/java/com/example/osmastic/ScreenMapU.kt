@@ -1,6 +1,7 @@
 package com.example.osmastic
 
 import android.app.Application
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -8,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -24,8 +26,23 @@ import kotlinx.coroutines.launch
 import org.maplibre.android.annotations.Marker
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.compose.camera.rememberCameraState
+import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.OrnamentOptions
 import org.maplibre.compose.style.BaseStyle
+
+data class PinHot(
+    val id: Int,
+    val lamportEpoch: Int,
+    val editorHash: ByteArray,
+    val position: Position,          // MapLibre's type
+    val iconUnicode: Int? = null,
+    val isDeleted: Boolean = false,
+//    val rotationDegrees: Int? = null,
+//    val lengthMeters: Int? = null,
+    val label: String? = null,
+    val timeToLiveSeconds: Int? = null
+) {}
 
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
 data class StateMapModelU(
@@ -94,8 +111,8 @@ class StateMapViewModelU(application: Application) : AndroidViewModel(applicatio
 
 @Composable
 fun ScreenMapU(viewModel: StateMapViewModelU, modifier: Modifier = Modifier) {
-    val stateOfModel by viewModel.mapStateR.collectAsState()
-    val cameraState = rememberCameraState(stateOfModel.cameraPosition)
+    val stateOfModel by viewModel.mapStateR.collectAsState() // the very DATA STATE, no methods IMPORTANT
+    val cameraState = rememberCameraState(stateOfModel.cameraPosition) // uuh... trust me bro, no way around it.
 
     //🎥🎥🎥 EFFECTS, OBSERVERS 🎥🎥🎥
     // TOP → BOTTOM: VM → map (one-way, reacts on state change)
@@ -120,11 +137,17 @@ fun ScreenMapU(viewModel: StateMapViewModelU, modifier: Modifier = Modifier) {
         // Free OSM tiles (requires internet and attribution)
         baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
         cameraState = cameraState,
-        // Optional: Disable gestures if you want to control via VM later
-        // gestureSettings = GestureSettings(scrollEnabled = false)
-    ) {
+        options = MapOptions(
+            ornamentOptions = OrnamentOptions(
+                isLogoEnabled = false,          // hides MapLibre logo
+                isCompassEnabled = true,
+                isScaleBarEnabled = true,
+                padding = PaddingValues(top = 15.dp)
+            )
+        )
+                ) {
 
-//        Marker(
+                //        Marker(
 //            position = LatLng(59.93, 30.33),
 //            title = "Test Marker",
 //            snippet = "Hello",
@@ -132,9 +155,9 @@ fun ScreenMapU(viewModel: StateMapViewModelU, modifier: Modifier = Modifier) {
 //            onClick = { true }
 //        )
 
-        // 1. Future Pin (Annotation) layers will go here
-        // 2. Example: AnnotationLayer(annotationPlugin) { ... }
-    }
+                // 1. Future Pin (Annotation) layers will go here
+                // 2. Example: AnnotationLayer(annotationPlugin) { ... }
+            }
 
 }
 
