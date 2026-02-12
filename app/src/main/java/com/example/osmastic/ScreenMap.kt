@@ -143,7 +143,7 @@ class StateMapViewModel(application: Application) : AndroidViewModel(application
             saveViewPortToColdStorage()
         }
     }
-    fun pushQuickPinIntoMVVM(incomingGeoPoint: GeoPoint): HotPin {
+    fun pushOnePinIntoMVVM(isLongTap: Boolean, incomingGeoPoint: GeoPoint): HotPin {
 
         val editorHashInt = SecureRandom().nextInt(1 shl 24)
 
@@ -164,8 +164,7 @@ class StateMapViewModel(application: Application) : AndroidViewModel(application
 class OsmdroidManager(private val appContext: Context,                 // CLASS WRAPPER AROUND THE MapView !!!
                       private val onMapMovedCallback: (ViewPort) -> Unit, // SIMPLE CALLBACK! TO HERE WE PLACE LATER WHAT WILL UPDATE BOTH HOT + COLD!
                       private val onMapReadyCallback: suspend () -> ViewPort, // SIMPLE CALLBACK! we put cold state loading call!!! on the event afer which its safe
-                      private val onShortTapCallback: suspend (GeoPoint, Context) -> HotPin,
-                      private val onLongTapCallback: suspend (GeoPoint, Context) -> Unit,
+                      private val onTapCallback: suspend (Context, Boolean, GeoPoint) -> HotPin, // TAPS REACTION CALLBACK <- a logical pin
                       private val onPinClick: suspend (Context) -> Unit
 ) {
     private val mapView: MapView // OUTSOURCED MAPVIEW !!!
@@ -213,7 +212,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
                 override fun singleTapConfirmedHelper(geoPoint: GeoPoint?): Boolean {
                     CoroutineScope(Dispatchers.Main).launch {
                         geoPoint?.let { geoPoint ->                                                       // "if not null, do something".
-                            val newHotPin = onShortTapCallback(geoPoint, appContext)
+                            val newHotPin = onTapCallback(appContext, false, geoPoint)
                             pushOnePinIntoPhysicalView(newHotPin)
                         }
                     }
@@ -222,7 +221,8 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
                 override fun longPressHelper(geoPoint: GeoPoint?): Boolean {
                     CoroutineScope(Dispatchers.Main).launch {
                         geoPoint?.let { geoPoint ->                                                  // "if not null, do something".
-                            onLongTapCallback(geoPoint, appContext)
+                            val newHotPin = onTapCallback(appContext, true, geoPoint)
+                            pushOnePinIntoPhysicalView(newHotPin)
                         }
                     }
                     return true
@@ -294,13 +294,14 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                     viewModel.updateViewPort(coldViewPort)
                     coldViewPort        // we return it back! CALLBACK "HELL" HAHAHAHH
                 },
-                onShortTapCallback = { geoPoint, context ->
-                    Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
-                    viewModel.pushQuickPinIntoMVVM(geoPoint) // ◀️◀️◀️ and return back... yeah
-                },
-                onLongTapCallback = { geoPoint, context ->
-                    Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_LONG).show()
-                    // <HERE LONGPRESS CALLBACK IMPLEMENTATION>  // ◀️◀️◀️ and return back... yeah
+                onTapCallback = { context, isLongTap, geoPoint,  ->
+                    if (!isLongTap) {
+                        Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_LONG).show()
+                    }
+                    // TODO modal window or SKIP decision HERE!!!
+                    viewModel.pushOnePinIntoMVVM(isLongTap, geoPoint) // ◀️◀️◀️ and return back... yeah
                 },
                 onPinClick = { context ->
                     Toast.makeText(context, "PIN CLICKED:", Toast.LENGTH_SHORT).show()
