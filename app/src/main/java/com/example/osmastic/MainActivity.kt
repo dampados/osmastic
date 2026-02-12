@@ -6,9 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
@@ -91,11 +89,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun OsmasticApp() {
     val appViewModel: StateGlobalViewModel = viewModel()
-    val uiState by appViewModel.uiState.collectAsState()
+    val stateOfModel by appViewModel.uiState.collectAsState()
 
     // STATES !!! keep em all on the same level and context as NS:
-//    val mapViewModel: StateMapViewModel = viewModel() // MAP
-    val mapViewModelU: StateMapViewModelU = viewModel() // MAP2
+    val mapViewModel: StateMapViewModel = viewModel() // MAP
 //    val libraryViewModel: StateLibraryViewModel = viewModel()   // later
 //    val channelsViewModel: StateChannelsViewModel = viewModel() // later
 
@@ -137,11 +134,8 @@ fun OsmasticApp() {
             composable(AppDestinations.PINLIST.name) {
                 ScreenLibrary(Modifier.fillMaxSize())
             }
-//            composable(AppDestinations.MAP.name) {
-//                ScreenMap(viewModel = mapViewModel, Modifier.fillMaxSize())
-//            }
             composable(AppDestinations.MAP.name) {
-                ScreenMapU(viewModel = mapViewModelU, Modifier.fillMaxSize())
+                ScreenMap(viewModel = mapViewModel, Modifier.fillMaxSize())
             }
             composable(AppDestinations.CHANNELS.name) {
                 ScreenChannels(Modifier.fillMaxSize())
@@ -149,36 +143,6 @@ fun OsmasticApp() {
         }
     }
 
-//    NavigationSuiteScaffold(
-//        navigationSuiteItems = {
-//            AppDestinations.entries.forEach {
-//                item(
-//                    icon = {
-//                        Icon(
-//                            it.icon,
-//                            contentDescription = it.label
-//                        )
-//                    },
-//                    label = { Text(it.label) },
-//                    selected = it == uiState.currentDestination,  // ← CHANGE HERE
-//                    onClick = { appViewModel.navigateTo(it) }
-//                )
-//            }
-//        }
-//    ) {
-//        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-//            when (uiState.currentDestination) {
-//                AppDestinations.PINLIST -> ScreenLibrary(modifier = Modifier.padding(innerPadding))
-//                AppDestinations.MAP -> ScreenMap(
-//                    viewModel = mapViewModel, // WE GIFT YOU YOUR STATE MATE
-//                    modifier = Modifier.padding(innerPadding)
-//                )
-////                AppDestinations.MAP -> ScreenMap(modifier = Modifier.padding(innerPadding))
-//                AppDestinations.CHANNELS -> ScreenChannels(modifier = Modifier.padding(innerPadding))
-//            }
-//        }
-//
-//    }
 } //OSMASTIC APP CLASS FINISHING BRACKET
 
 enum class AppDestinations(
@@ -190,5 +154,3 @@ enum class AppDestinations(
     MAP("Map", Icons.Outlined.Map),
     CHANNELS("Channels", Icons.Outlined.Forum),
 }
-
-
