@@ -45,6 +45,8 @@ import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
 // taps support
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.views.overlay.MapEventsOverlay
+import org.osmdroid.views.overlay.Marker
+import java.security.SecureRandom
 
 data class ViewPort(
     val mapCenter: GeoPoint, // default loc, SPB
@@ -55,8 +57,9 @@ data class HotPin(
     val pinLogicalId: Int,
     val lamportEpoch: Int = 1,
     val editorHash: ByteArray,
-    val viewPort: ViewPort,         // full viewport for simplicity
-    val iconUnicode: Int = 0x1F4CD,
+//    val viewPort: ViewPort,         // full viewport for simplicity
+    val geoPoint: GeoPoint,
+    val iconUnicode: String = "📍",
     val label: String? = null,
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
     val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
@@ -86,7 +89,6 @@ class StateMapViewModel(application: Application) : AndroidViewModel(application
         val currentViewPort = _mapStateRW.value.viewPort
         mapPrefsManager.saveMapPos(currentViewPort)
     }
-
     private var jobStateUpdate: Job? = null
     private var jobStateColdUpdate: Job? = null
     fun updateViewPort(incomingViewPort: ViewPort) {
@@ -105,32 +107,49 @@ class StateMapViewModel(application: Application) : AndroidViewModel(application
             saveViewPortToColdStorage()
         }
     }
+    fun pushQuickPinIntoMVVM(incomingGeoPoint: GeoPoint): HotPin {
+
+        val editorHashInt = SecureRandom().nextInt(1 shl 24)
+
+        val newHotPin = HotPin(
+            pinLogicalId = SecureRandom().nextInt(1 shl 24),
+            editorHash = byteArrayOf((editorHashInt shr 16).toByte(), (editorHashInt shr 8).toByte(), editorHashInt.toByte()),
+            geoPoint = incomingGeoPoint,
+        )
+
+        return newHotPin
+
+    }
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
 
 // ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
-class OsmdroidManager(context: Context,                 // CLASS WRAPPER AROUND THE MapView !!!
+class OsmdroidManager(private val appContext: Context,                 // CLASS WRAPPER AROUND THE MapView !!!
                       private val onMapMovedCallback: (ViewPort) -> Unit, // SIMPLE CALLBACK! TO HERE WE PLACE LATER WHAT WILL UPDATE BOTH HOT + COLD!
                       private val onMapReadyCallback: suspend () -> ViewPort, // SIMPLE CALLBACK! we put cold state loading call!!! on the event afer which its safe
-                      private val onShortTapCallback: suspend (GeoPoint, Context) -> Unit,
+                      private val onShortTapCallback: suspend (GeoPoint, Context) -> HotPin,
                       private val onLongTapCallback: suspend (GeoPoint, Context) -> Unit,
+                      private val onPinClick: suspend (Context) -> Unit
 ) {
     private val mapView: MapView // OUTSOURCED MAPVIEW !!!
 
     init { // FACTORY ONE TIME INSTANTIATION
-        mapView = MapView(context).apply {
-            // CONFIG 🚧🚧🚧
+        mapView = MapView(appContext).apply {
+            // 🚧🚧🚧 CONFIG 🚧🚧🚧
             setTileSource(TileSourceFactory.MAPNIK )
             setMultiTouchControls(true)
             setUseDataConnection(true)
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
+            // 🍰🍰🍰 OVERLAYS SECTION 🍰🍰🍰
             val rotationOverlay = RotationGestureOverlay(this)
             rotationOverlay.isEnabled = true
             overlays.add(rotationOverlay)
+            // 🍰🍰🍰 OVERLAYS SECTION 🍰🍰🍰
 
-            // VIEW -> MODEL (bottom -> top) UPDATE
+            // 🤙🤙🤙 CALLBACK SECTION 🤙🤙🤙
+            //  CATCH MOVEMENT -> VIEW -> MODEL (bottom -> top -> bottom) UPDATE
             addMapListener(object : MapListener {
                 override fun onScroll(event: ScrollEvent?): Boolean {
                     val newViewPort = ViewPort(
@@ -153,12 +172,13 @@ class OsmdroidManager(context: Context,                 // CLASS WRAPPER AROUND 
                     return false
                 }
             })
-
+            // CATCH TAPS -> VIEW -> MODEL (bottom -> top -> bottom)
             overlays.add(MapEventsOverlay(object : MapEventsReceiver {
                 override fun singleTapConfirmedHelper(geoPoint: GeoPoint?): Boolean {
                     CoroutineScope(Dispatchers.Main).launch {
                         geoPoint?.let { geoPoint ->                                                       // "if not null, do something".
-                            onShortTapCallback(geoPoint, context)
+                            val newHotPin = onShortTapCallback(geoPoint, appContext)
+                            pushOnePinIntoPhysicalView(newHotPin)
                         }
                     }
                     return true
@@ -166,13 +186,12 @@ class OsmdroidManager(context: Context,                 // CLASS WRAPPER AROUND 
                 override fun longPressHelper(geoPoint: GeoPoint?): Boolean {
                     CoroutineScope(Dispatchers.Main).launch {
                         geoPoint?.let { geoPoint ->                                                  // "if not null, do something".
-                            onLongTapCallback(geoPoint, context)
+                            onLongTapCallback(geoPoint, appContext)
                         }
                     }
                     return true
                 }
             }))
-
             // ON MAP READY CATCH
             addOnFirstLayoutListener { _, _, _, _, _ ->
                 CoroutineScope(Dispatchers.Main).launch {
@@ -180,12 +199,13 @@ class OsmdroidManager(context: Context,                 // CLASS WRAPPER AROUND 
                     setViewport(coldViewPort) // LOCAL ONLY
                 }
             }
-            // CONFIG 🚧🚧🚧
+            // 🤙🤙🤙 CALLBACK SECTION 🤙🤙🤙
+            // 🚧🚧🚧 CONFIG 🚧🚧🚧
         }
     }
 
-    fun getMapView(): MapView = mapView // Factory calls this
-
+    // 🎊🎊🎊 FUN SECTION 🎊🎊🎊
+    fun getMapView(): MapView = mapView        // 🪃🪃🪃  Factory calls this 🪃🪃🪃
     fun setViewport(incomingViewPort: ViewPort) {
         mapView.controller.animateTo(
             incomingViewPort.mapCenter,
@@ -195,6 +215,28 @@ class OsmdroidManager(context: Context,                 // CLASS WRAPPER AROUND 
 //            0  // 0ms = instant
         )
     }
+
+    fun pushOnePinIntoPhysicalView(incomingLoicalPin: HotPin) {
+        val marker = Marker(mapView).apply {
+            position = incomingLoicalPin.geoPoint
+            textLabelBackgroundColor = 0x00000000  // Remove white square
+            textLabelFontSize = 72
+            setTextIcon("${incomingLoicalPin.iconUnicode} ${incomingLoicalPin.label ?: ""}")
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER) // Emoji centered on tap point
+
+
+            // Click handler
+            setOnMarkerClickListener { _, _ ->
+                CoroutineScope(Dispatchers.Main).launch {
+                    onPinClick(appContext)
+                }
+                true
+            }
+        }
+        mapView.overlays.add(marker)
+        mapView.invalidate()
+    }
+    // 🎊🎊🎊 FUN SECTION 🎊🎊🎊
 }
 // ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
 
@@ -213,10 +255,16 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 },
                 onShortTapCallback = { geoPoint, context ->
                     Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
+                    viewModel.pushQuickPinIntoMVVM(geoPoint) // ◀️◀️◀️ and return back... yeah
                 },
                 onLongTapCallback = { geoPoint, context ->
                     Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_LONG).show()
+                    // <HERE LONGPRESS CALLBACK IMPLEMENTATION>  // ◀️◀️◀️ and return back... yeah
                 },
+                onPinClick = { context ->
+                    Toast.makeText(context, "PIN CLICKED:", Toast.LENGTH_SHORT).show()
+                    // <HERE PIN CLICK CALLBACK IMPLEMENTATION>  // ◀️◀️◀️ and return back... yeah
+                }
             ).getMapView()
         },
         update = { /* nothing here - not using native MVVM updates */  }
