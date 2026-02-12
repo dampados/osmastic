@@ -4,6 +4,8 @@ package com.example.osmastic
 
 import android.app.Application
 import android.content.Context
+import android.graphics.Canvas
+import android.text.TextPaint
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
@@ -48,6 +50,40 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import java.security.SecureRandom
 
+class LabeledMarker(
+    mapView: MapView,
+    private val label: String,
+    private val rotation: Float? = null  // 👈 ADD THIS
+) : Marker(mapView) {
+
+    init {
+        // 👇 NULL = upright (flat=false), VALUE = rotates with map (flat=true)
+        isFlat = rotation != null
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        rotation?.let { setRotation(it) }
+    }
+
+    private val textPaint = TextPaint().apply {
+        color = android.graphics.Color.BLACK
+        textSize = 48f
+        textAlign = android.graphics.Paint.Align.CENTER
+    }
+
+    override fun draw(canvas: Canvas, mapView: MapView, shadow: Boolean) {
+        super.draw(canvas, mapView, shadow)
+
+        if (!shadow) {
+            val point = mapView.projection.toPixels(position, null)
+            val gapPx = 20 * mapView.resources.displayMetrics.density
+            // 👇 LABEL ALWAYS FLAT (counter-rotate)
+            canvas.save()
+            canvas.rotate(-mapView.mapOrientation, point.x.toFloat(), point.y + gapPx)
+            canvas.drawText(label, point.x.toFloat(), point.y + gapPx, textPaint)
+            canvas.restore()
+        }
+    }
+}
+
 data class ViewPort(
     val mapCenter: GeoPoint, // default loc, SPB
     val mapZoom: Double, // obvious
@@ -57,10 +93,10 @@ data class HotPin(
     val pinLogicalId: Int,
     val lamportEpoch: Int = 1,
     val editorHash: ByteArray,
-//    val viewPort: ViewPort,         // full viewport for simplicity
     val geoPoint: GeoPoint,
     val iconUnicode: String = "📍",
     val label: String? = null,
+    val rotationByte: Int? = null,
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
     val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
 )
@@ -215,17 +251,22 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
 //            0  // 0ms = instant
         )
     }
+    fun pushOnePinIntoPhysicalView(incomingLogicalPin: HotPin) {
+        // LOGICAL -> PHYSICAL ANGLE CONVERSION 255 -> 360
+        val rotationDegrees = incomingLogicalPin.rotationByte?.let { it * 360f / 255f }
 
-    fun pushOnePinIntoPhysicalView(incomingLoicalPin: HotPin) {
-        val marker = Marker(mapView).apply {
-            position = incomingLoicalPin.geoPoint
-            textLabelBackgroundColor = 0x00000000  // Remove white square
+        val marker = LabeledMarker(mapView,
+                        incomingLogicalPin.label ?: "",
+                        rotation = rotationDegrees,
+            ).apply {
+            position = incomingLogicalPin.geoPoint
+            textLabelBackgroundColor = 0x00000000 // TRANSPARENT (sorry for magic number, less imports)
             textLabelFontSize = 72
-            setTextIcon("${incomingLoicalPin.iconUnicode} ${incomingLoicalPin.label ?: ""}")
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER) // Emoji centered on tap point
+            setTextIcon("${incomingLogicalPin.iconUnicode}")
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
 
-
-            // Click handler
+            // redefine click action!!!
+            setInfoWindow(null)
             setOnMarkerClickListener { _, _ ->
                 CoroutineScope(Dispatchers.Main).launch {
                     onPinClick(appContext)

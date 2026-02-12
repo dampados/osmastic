@@ -11,8 +11,9 @@ data class Pin(
     val editorHash: ByteArray, // 3 byte FIXED, not varint
     val latitude: Int,  // 32 bytes full, but shrinked to 24 for meshtastic
     val longitude: Int, // 32 bytes full, but shrinked to 24 for meshtastic
-    val iconUnicode: Int = 0x1F4CD, // 4 byte max
+    val iconUnicode: String = "📍", // 4 byte max
     val label: String? = null, // max 41 byte, first byte - LENGTH
+    val rotationByte: Int? = null, // lol 1 bte rotation sticked to the map body
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
     val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
 
@@ -32,6 +33,7 @@ data class Pin(
         if (iconUnicode != other.iconUnicode) return false
         if (isHiddenBeforeTTL != other.isHiddenBeforeTTL) return false
         if (label != other.label) return false
+        if (rotationByte != other.rotationByte) return false
         return expirationTimestamp == other.expirationTimestamp
     }
 
@@ -42,9 +44,10 @@ data class Pin(
         result = 31 * result + editorHash.contentHashCode()
         result = 31 * result + latitude
         result = 31 * result + longitude
-        result = 31 * result + iconUnicode
+        result = 31 * result + iconUnicode.hashCode()
         result = 31 * result + isHiddenBeforeTTL.hashCode()
         result = 31 * result + (label?.hashCode() ?: 0)
+        result = 31 * result + rotationByte.hashCode()
         result = 31 * result + expirationTimestamp.hashCode()
         return result
     }
