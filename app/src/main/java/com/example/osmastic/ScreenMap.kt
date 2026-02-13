@@ -68,11 +68,13 @@ import java.security.SecureRandom
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+//repo
+import com.example.osmastic.repo.RepoPin
 
 class LabeledMarker(
     mapView: MapView,
     private val label: String,
-    private val rotation: Float? = null  // 👈 ADD THIS
+    private val rotation: Float? = null
 ) : Marker(mapView) {
 
     init {
@@ -112,6 +114,7 @@ data class PinUI(
     val label: String? = null,
     val rotationByte: Int? = null,
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
+    val hoursTTL: Int = 6, // SIX HOURS DEFAULT life time
 )
 data class PinLogical(
     val pinLogicalId: Int,
@@ -131,7 +134,10 @@ data class StateMapModel(
     ),
     val pins: List<PinLogical> = emptyList()
 )
-class StateMapViewModel(application: Application) : AndroidViewModel(application) {
+class StateMapViewModel(
+    application: Application,
+//    private val repoPin: RepoPin, // TODO INJECT PROPERLY
+) : AndroidViewModel(application) {
     val mapPrefsManager: MapPrefsManager by lazy {
         MapPrefsManager(
             PreferenceDataStoreFactory.create(
@@ -165,29 +171,35 @@ class StateMapViewModel(application: Application) : AndroidViewModel(application
             saveViewPortToColdStorage()
         }
     }
+    private fun pushOnePinLogicalToModel(incomingPinUI: PinUI): PinLogical {
+        val editorHashInt = SecureRandom().nextInt(1 shl 24)
+        val calculatedExpTimestamp = if (incomingPinUI.hoursTTL == 0) {
+            0L  // eternal
+        } else {
+            System.currentTimeMillis() + (incomingPinUI.hoursTTL * 3600 * 1000)
+        }
 
-    fun constructPinQuick(incomingGeoPoint: GeoPoint): PinLogical {
-        val editorHashInt = SecureRandom().nextInt(1 shl 24)
+
         val newPinLogical = PinLogical(
             pinLogicalId = SecureRandom().nextInt(1 shl 24),
             editorHash = byteArrayOf((editorHashInt shr 16).toByte(), (editorHashInt shr 8).toByte(), editorHashInt.toByte()),
-            pinPhysProps = PinUI(
-                geoPoint = incomingGeoPoint
-            )
-        )
-        // <PUSHER W/ SIDEEFFECTS LAUNCING HERE>
-        return newPinLogical
-    }
-    fun constructPinFull(incomingPinUI: PinUI): PinLogical {
-        val editorHashInt = SecureRandom().nextInt(1 shl 24)
-        val newPinLogical = PinLogical(
-            pinLogicalId = SecureRandom().nextInt(1 shl 24),
-            editorHash = byteArrayOf((editorHashInt shr 16).toByte(), (editorHashInt shr 8).toByte(), editorHashInt.toByte()),
+            expirationTimestamp = calculatedExpTimestamp,
             pinPhysProps = incomingPinUI
         )
-        // <PUSHER W/ SIDEEFFECTS LAUNCING HERE>
+        // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
+//        viewModelScope.launch {
+//            repoPin.pushOnePinFurther(newPinLogical)
+//        }
+        // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
+
         return newPinLogical
     }
+
+    // AVAILABLE METHODS
+    fun constructPinQuick(geoPoint: GeoPoint) =
+        pushOnePinLogicalToModel(PinUI(geoPoint))
+    fun constructPinFull(pinUI: PinUI) =
+        pushOnePinLogicalToModel(pinUI)
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥

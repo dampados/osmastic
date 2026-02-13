@@ -10,9 +10,9 @@ import androidx.room.Update
 @Dao
 interface PinDao {
 
-    // CREATE ONE (with return value): Returns the row ID as Long
+    // CREATE ONE: Insert a single pin (replace on conflict)
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAndReturnId(pin: Pin): Long
+    suspend fun insert(pin: Pin)
 
     // GET ALL: Get all pins
     @Query("SELECT * FROM pin")
@@ -37,6 +37,10 @@ interface PinDao {
 //    // CREATE ONE: Insert a single pin (replace on conflict)
 //    @Insert(onConflict = OnConflictStrategy.REPLACE)
 //    suspend fun insert(pin: Pin)
+
+// CREATE ONE (with return value): Returns the row ID as Long
+//@Insert(onConflict = OnConflictStrategy.REPLACE)
+//suspend fun insertAndReturnId(pin: Pin): Long
 
 //    // GET ALL (ordered by ID, optional but useful)
 //    @Query("SELECT * FROM pin ORDER BY id ASC")
