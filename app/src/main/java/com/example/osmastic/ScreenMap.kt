@@ -16,11 +16,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
 //new ones:
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -60,6 +62,9 @@ import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import java.security.SecureRandom
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 class LabeledMarker(
     mapView: MapView,
@@ -316,12 +321,15 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
 @Composable
 fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     val stateOfModel by viewModel.mapStateR.collectAsState()
+    var showDialog by remember { mutableStateOf(false) }
+    var dialogGeoPoint by remember { mutableStateOf<GeoPoint?>(null) }
+    var dialogContinuation by remember { mutableStateOf<Continuation<PinUI>?>(null) }
 
-
-    suspend fun showPinCreationModal(geoPoint: GeoPoint): PinUI {
-        return PinUI(geoPoint = geoPoint)
+    suspend fun showPinCreationModal(geoPoint: GeoPoint): PinUI = suspendCoroutine { cont ->
+        showDialog = true
+        dialogGeoPoint = geoPoint
+        dialogContinuation = cont  // ← saves the waiting coroutine
     }
-
 
     AndroidView<MapView>(
         factory = { ctx ->
@@ -370,6 +378,55 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             Text("${stateOfModel.viewPort.mapBearing}", fontSize = 14.sp)
 //            Text("Center: ${viewModel.uiState.mapCenter.latitude}, ${viewModel.uiState.mapCenter.longitude}")
 
+        }
+    } // Box end
+
+    if (showDialog && dialogGeoPoint != null) {
+        PinCreationDialog(
+            geoPoint = dialogGeoPoint!!,
+            onConfirm = { pinUI ->
+                showDialog = false
+                dialogContinuation?.resume(pinUI)
+                dialogContinuation = null
+            },
+            onDismiss = {
+                showDialog = false
+                dialogContinuation?.resume(PinUI(geoPoint = dialogGeoPoint!!))
+                dialogContinuation = null
+            }
+        )
+    } // if end
+
+} // ScreenMap end
+
+@Composable
+fun PinCreationDialog(
+    geoPoint: GeoPoint,
+    onConfirm: (PinUI) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(400.dp)
+                .padding(8.dp),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Add Pin at ${geoPoint.latitude}, ${geoPoint.longitude}")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(onClick = {
+                    onConfirm(PinUI(geoPoint = geoPoint))
+                }) {
+                    Text("OK")
+                }
+            }
         }
     }
 }
