@@ -6,6 +6,7 @@ import android.app.Application
 import android.content.Context
 import android.graphics.Canvas
 import android.text.TextPaint
+import android.view.Surface
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
@@ -15,10 +16,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
 //new ones:
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,13 +73,11 @@ class LabeledMarker(
         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         rotation?.let { setRotation(it) }
     }
-
     private val textPaint = TextPaint().apply {
         color = android.graphics.Color.BLACK
         textSize = 48f
         textAlign = android.graphics.Paint.Align.CENTER
     }
-
     override fun draw(canvas: Canvas, mapView: MapView, shadow: Boolean) {
         super.draw(canvas, mapView, shadow)
 
@@ -83,23 +92,28 @@ class LabeledMarker(
         }
     }
 }
-
 data class ViewPort(
     val mapCenter: GeoPoint, // default loc, SPB
     val mapZoom: Double, // obvious
     val mapBearing: Float
 )
-data class HotPin(
-    val pinLogicalId: Int,
-    val lamportEpoch: Int = 1,
-    val editorHash: ByteArray,
+
+data class PinUI(
     val geoPoint: GeoPoint,
     val iconUnicode: String = "📍",
     val label: String? = null,
     val rotationByte: Int? = null,
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
-    val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
 )
+data class PinLogical(
+    val pinLogicalId: Int,
+    val lamportEpoch: Int = 1,
+    val editorHash: ByteArray,
+    val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
+    val pinPhysProps: PinUI
+)
+
+
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
 data class StateMapModel(
     val viewPort: ViewPort = ViewPort(
@@ -107,7 +121,7 @@ data class StateMapModel(
         mapZoom = 11.0,
         mapBearing = 0f
     ),
-    val pins: List<HotPin> = emptyList()
+    val pins: List<PinLogical> = emptyList()
 )
 class StateMapViewModel(application: Application) : AndroidViewModel(application) {
     val mapPrefsManager: MapPrefsManager by lazy {
@@ -119,52 +133,66 @@ class StateMapViewModel(application: Application) : AndroidViewModel(application
     }
     private val _mapStateRW = MutableStateFlow(StateMapModel()) // RW, but private!
     val mapStateR: StateFlow<StateMapModel> = _mapStateRW.asStateFlow() // readonly!
+    private var jobViewPortStateHotUpdate: Job? = null 
+    private var jobViewPortStateColdUpdate: Job? = null
 
     // ➡️➡️➡️ INTERACTIVE
     suspend fun saveViewPortToColdStorage() {
         val currentViewPort = _mapStateRW.value.viewPort
         mapPrefsManager.saveMapPos(currentViewPort)
     }
-    private var jobStateUpdate: Job? = null
-    private var jobStateColdUpdate: Job? = null
     fun updateViewPort(incomingViewPort: ViewPort) {
         //#1 - RAM FLUSH - QUICKER!
-        jobStateUpdate?.cancel()
-        jobStateUpdate = viewModelScope.launch {
+        jobViewPortStateHotUpdate?.cancel()
+        jobViewPortStateHotUpdate = viewModelScope.launch {
             delay(200L)
             _mapStateRW.update { current ->
                 current.copy(viewPort = incomingViewPort)
             }
         }
         //#2 COLD FLUSH - RELAXED!
-        jobStateColdUpdate?.cancel()
-        jobStateColdUpdate = viewModelScope.launch {
+        jobViewPortStateColdUpdate?.cancel()
+        jobViewPortStateColdUpdate = viewModelScope.launch {
             delay(1000L)
             saveViewPortToColdStorage()
         }
     }
-    fun pushOnePinIntoMVVM(isLongTap: Boolean, incomingGeoPoint: GeoPoint): HotPin {
 
+    fun constructPinQuick(incomingGeoPoint: GeoPoint): PinLogical {
         val editorHashInt = SecureRandom().nextInt(1 shl 24)
-
-        val newHotPin = HotPin(
+        val newPinLogical = PinLogical(
             pinLogicalId = SecureRandom().nextInt(1 shl 24),
             editorHash = byteArrayOf((editorHashInt shr 16).toByte(), (editorHashInt shr 8).toByte(), editorHashInt.toByte()),
-            geoPoint = incomingGeoPoint,
+            pinPhysProps = PinUI(
+                geoPoint = incomingGeoPoint
+            )
         )
-
-        return newHotPin
-
+        // <PUSHER W/ SIDEEFFECTS LAUNCING HERE>
+        return newPinLogical
+    }
+    fun constructPinFull(incomingPinUI: PinUI): PinLogical {
+        val editorHashInt = SecureRandom().nextInt(1 shl 24)
+        val newPinLogical = PinLogical(
+            pinLogicalId = SecureRandom().nextInt(1 shl 24),
+            editorHash = byteArrayOf((editorHashInt shr 16).toByte(), (editorHashInt shr 8).toByte(), editorHashInt.toByte()),
+            pinPhysProps = incomingPinUI
+        )
+        // <PUSHER W/ SIDEEFFECTS LAUNCING HERE>
+        return newPinLogical
     }
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
 
+
+
+
+
 // ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
 class OsmdroidManager(private val appContext: Context,                 // CLASS WRAPPER AROUND THE MapView !!!
                       private val onMapMovedCallback: (ViewPort) -> Unit, // SIMPLE CALLBACK! TO HERE WE PLACE LATER WHAT WILL UPDATE BOTH HOT + COLD!
                       private val onMapReadyCallback: suspend () -> ViewPort, // SIMPLE CALLBACK! we put cold state loading call!!! on the event afer which its safe
-                      private val onTapCallback: suspend (Context, Boolean, GeoPoint) -> HotPin, // TAPS REACTION CALLBACK <- a logical pin
+                      private val onTapCallback: suspend (Context, Boolean, GeoPoint) -> PinLogical, // TAPS REACTION CALLBACK <- a logical pin
                       private val onPinClick: suspend (Context) -> Unit
 ) {
     private val mapView: MapView // OUTSOURCED MAPVIEW !!!
@@ -251,18 +279,18 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
 //            0  // 0ms = instant
         )
     }
-    fun pushOnePinIntoPhysicalView(incomingLogicalPin: HotPin) {
+    fun pushOnePinIntoPhysicalView(incomingLogicalPin: PinLogical) {
         // LOGICAL -> PHYSICAL ANGLE CONVERSION 255 -> 360
-        val rotationDegrees = incomingLogicalPin.rotationByte?.let { it * 360f / 255f }
+        val rotationDegrees = incomingLogicalPin.pinPhysProps.rotationByte?.let { it * 360f / 255f }
 
         val marker = LabeledMarker(mapView,
-                        incomingLogicalPin.label ?: "",
+                        incomingLogicalPin.pinPhysProps.label ?: "",
                         rotation = rotationDegrees,
             ).apply {
-            position = incomingLogicalPin.geoPoint
+            position = incomingLogicalPin.pinPhysProps.geoPoint
             textLabelBackgroundColor = 0x00000000 // TRANSPARENT (sorry for magic number, less imports)
             textLabelFontSize = 72
-            setTextIcon("${incomingLogicalPin.iconUnicode}")
+            setTextIcon("${incomingLogicalPin.pinPhysProps.iconUnicode}")
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
 
             // redefine click action!!!
@@ -281,9 +309,19 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
 }
 // ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
 
+
+
+
+
 @Composable
 fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     val stateOfModel by viewModel.mapStateR.collectAsState()
+
+
+    suspend fun showPinCreationModal(geoPoint: GeoPoint): PinUI {
+        return PinUI(geoPoint = geoPoint)
+    }
+
 
     AndroidView<MapView>(
         factory = { ctx ->
@@ -292,16 +330,24 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 onMapReadyCallback = {
                     val coldViewPort = viewModel.mapPrefsManager.getInitialMapPosition()
                     viewModel.updateViewPort(coldViewPort)
-                    coldViewPort        // we return it back! CALLBACK "HELL" HAHAHAHH
+                    coldViewPort        // ◀️◀️◀️ and return back... yeah
                 },
                 onTapCallback = { context, isLongTap, geoPoint,  ->
+// 👺👺👺👺👺👺
                     if (!isLongTap) {
                         Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_LONG).show()
                     }
-                    // TODO modal window or SKIP decision HERE!!!
-                    viewModel.pushOnePinIntoMVVM(isLongTap, geoPoint) // ◀️◀️◀️ and return back... yeah
+
+                    val newPinLogical = if (isLongTap) {                // WOW val assigning through IF
+                        val newPinUI = showPinCreationModal(geoPoint)  // --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type
+                        viewModel.constructPinFull(newPinUI)
+                    } else {
+                        viewModel.constructPinQuick(geoPoint)
+                    }
+                    newPinLogical // ◀️◀️◀️ and return back... yeah
+// 👺👺👺👺👺👺
                 },
                 onPinClick = { context ->
                     Toast.makeText(context, "PIN CLICKED:", Toast.LENGTH_SHORT).show()
