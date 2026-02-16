@@ -6,4 +6,8 @@ plugins {
 
     // KSP FOR THE ROOM
     alias(libs.plugins.ksp) apply false
+
+    // HILT bc viewModel() factory bc context for the ROOM
+//    id("com.google.dagger.hilt.android") version "2.57.1" apply false
+    alias(libs.plugins.hilt) apply false
 }

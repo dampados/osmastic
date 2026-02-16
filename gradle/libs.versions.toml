@@ -49,3 +49,6 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 #KSP FOR ROOM GENERATION
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 
+#HILT for DI bc viewModel() factory bc context for the ROOM
+hilt = { id = "com.google.dagger.hilt.android", version = "2.57.1" }
+

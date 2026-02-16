@@ -1,6 +1,7 @@
 package com.example.osmastic
 
 import android.app.Application
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Map
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.AndroidViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -36,8 +38,28 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlin.getValue
-// import db
-import com.example.osmastic.db.AppDatabase
+// import repo
+import com.example.osmastic.repo.RepoPin
+// HILT
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.qualifiers.ApplicationContext
+import jakarta.inject.Singleton
+import dagger.hilt.components.SingletonComponent
+
+// ⛰️⛰️⛰️ HILT module for specifying the context we need ⛰️⛰️⛰️
+@Module
+@InstallIn(SingletonComponent::class)
+object AppModule {
+    @Provides
+    @Singleton
+    fun provideRepoPin(@ApplicationContext context: Context): RepoPin {
+        return RepoPin(context)  // manual creation
+    }
+}
+// ⛰️⛰️⛰️ HILT module for specifying the context we need ⛰️⛰️⛰️
 
 // 📥📥📥  MAIN MODEL BATTERY 📥📥📥
 data class StateGlobalModel(
@@ -50,8 +72,8 @@ class StateGlobalViewModel(application: Application) : AndroidViewModel(applicat
 
     // 🛠️🛠️🛠️ SERVICES (singleton via lazy)
     private val appContext get() = getApplication<Application>().applicationContext // GLOBAL APP CONTEXT (e.g. create a db file by correct path)
-    private val database by lazy { AppDatabase.getDatabase(appContext) } // HERE PASS THRU this context
-    val pinDao by lazy { database.pinDao() } // DAOs, more - later
+//    val repoPin by lazy { RepoPin(appContext) } // REPO not needed, HILT
+
     // Later: val bleManager by lazy { BleManager(appContext) }
     // Later: val meshService by lazy { MeshtasticService(appContext) }
     // 🛠️🛠️🛠️ SERVICES (singleton via lazy)
@@ -72,6 +94,7 @@ class StateGlobalViewModel(application: Application) : AndroidViewModel(applicat
 }
 // 📥📥📥 MAIN MODEL BATTERY 📥📥📥
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,7 +115,8 @@ fun OsmasticApp() {
     val stateOfModel by appViewModel.uiState.collectAsState()
 
     // STATES !!! keep em all on the same level and context as NS:
-    val mapViewModel: StateMapViewModel = viewModel() // MAP
+//    val mapViewModel: StateMapViewModel = viewModel() // MAP
+    val mapViewModel: StateMapViewModel = hiltViewModel()  // ← NOT viewModel()
 //    val libraryViewModel: StateLibraryViewModel = viewModel()   // later
 //    val channelsViewModel: StateChannelsViewModel = viewModel() // later
 

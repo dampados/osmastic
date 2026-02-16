@@ -5,6 +5,10 @@ plugins {
 
     //KSP FOR THE ROOM
     alias(libs.plugins.ksp)
+
+    // HILT bc viewModel() factory bc context for the ROOM
+//    id("com.google.dagger.hilt.android")
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -79,4 +83,9 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.0")
     // BONUS PACK FOR SHORT AND LONG TAP
 //    implementation("com.github.MKergall:osmbonuspack:6.9.0")
+
+    // HILT
+    implementation("com.google.dagger:hilt-android:2.57.1")
+    ksp("com.google.dagger:hilt-compiler:2.57.1")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 }

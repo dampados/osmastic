@@ -5,6 +5,8 @@ package com.example.osmastic
 import android.app.Application
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.text.TextPaint
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
@@ -31,7 +33,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.retain.retain
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -70,6 +74,9 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 //repo
 import com.example.osmastic.repo.RepoPin
+import dagger.hilt.android.lifecycle.HiltViewModel
+import jakarta.inject.Inject
+import org.osmdroid.tileprovider.tilesource.XYTileSource
 
 class LabeledMarker(
     mapView: MapView,
@@ -80,13 +87,13 @@ class LabeledMarker(
     init {
         // 👇 NULL = upright (flat=false), VALUE = rotates with map (flat=true)
         isFlat = rotation != null
-        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        setAnchor(ANCHOR_CENTER, ANCHOR_CENTER)
         rotation?.let { setRotation(it) }
     }
     private val textPaint = TextPaint().apply {
-        color = android.graphics.Color.BLACK
+        color = Color.BLACK
         textSize = 48f
-        textAlign = android.graphics.Paint.Align.CENTER
+        textAlign = Paint.Align.CENTER
     }
     override fun draw(canvas: Canvas, mapView: MapView, shadow: Boolean) {
         super.draw(canvas, mapView, shadow)
@@ -134,7 +141,8 @@ data class StateMapModel(
     ),
     val pins: List<PinLogical> = emptyList()
 )
-class StateMapViewModel(
+@HiltViewModel
+class StateMapViewModel @Inject constructor(
     application: Application,
 //    private val repoPin: RepoPin, // TODO INJECT PROPERLY
 ) : AndroidViewModel(application) {
@@ -179,7 +187,6 @@ class StateMapViewModel(
             System.currentTimeMillis() + (incomingPinUI.hoursTTL * 3600 * 1000)
         }
 
-
         val newPinLogical = PinLogical(
             pinLogicalId = SecureRandom().nextInt(1 shl 24),
             editorHash = byteArrayOf((editorHashInt shr 16).toByte(), (editorHashInt shr 8).toByte(), editorHashInt.toByte()),
@@ -220,7 +227,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
     init { // FACTORY ONE TIME INSTANTIATION
         mapView = MapView(appContext).apply {
             // 🚧🚧🚧 CONFIG 🚧🚧🚧
-            setTileSource(TileSourceFactory.MAPNIK )
+            setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
             setUseDataConnection(true)
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
@@ -294,7 +301,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
         mapView.controller.animateTo(
             incomingViewPort.mapCenter,
             incomingViewPort.mapZoom,
-            5,
+            700,
             incomingViewPort.mapBearing,
 //            0  // 0ms = instant
         )
@@ -346,37 +353,44 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         dialogContinuation = cont  // ← saves the waiting coroutine
     }
 
+    val ctx = LocalContext.current
+
+//    val osmdroidManager = remember {
+    val osmdroidManager = retain {
+        OsmdroidManager( ctx,
+            onMapMovedCallback = { viewModel.updateViewPort(it) },
+            onMapReadyCallback = {
+                val coldViewPort = viewModel.mapPrefsManager.getInitialMapPosition()
+                viewModel.updateViewPort(coldViewPort)
+                coldViewPort        // ◀️◀️◀️ and return back... yeah
+            },
+            onTapCallback = { context, isLongTap, geoPoint,  ->
+// 👺👺👺👺👺👺
+                if (!isLongTap) {
+                    Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_LONG).show()
+                }
+
+                val newPinLogical = if (isLongTap) {                // WOW val assigning through IF
+                    val newPinUI = showPinCreationModal(geoPoint)  // --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type
+                    viewModel.constructPinFull(newPinUI)
+                } else {
+                    viewModel.constructPinQuick(geoPoint)
+                }
+                newPinLogical // ◀️◀️◀️ and return back... yeah
+// 👺👺👺👺👺👺
+            },
+            onPinClick = { context ->
+                Toast.makeText(context, "PIN CLICKED:", Toast.LENGTH_SHORT).show()
+                // <HERE PIN CLICK CALLBACK IMPLEMENTATION>  // ◀️◀️◀️ and return back... yeah
+            }
+        )
+    }
+
     AndroidView<MapView>(
         factory = { ctx ->
-            OsmdroidManager(ctx,
-                onMapMovedCallback = { viewModel.updateViewPort(it) },
-                onMapReadyCallback = {
-                    val coldViewPort = viewModel.mapPrefsManager.getInitialMapPosition()
-                    viewModel.updateViewPort(coldViewPort)
-                    coldViewPort        // ◀️◀️◀️ and return back... yeah
-                },
-                onTapCallback = { context, isLongTap, geoPoint,  ->
-// 👺👺👺👺👺👺
-                    if (!isLongTap) {
-                        Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_LONG).show()
-                    }
-
-                    val newPinLogical = if (isLongTap) {                // WOW val assigning through IF
-                        val newPinUI = showPinCreationModal(geoPoint)  // --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type
-                        viewModel.constructPinFull(newPinUI)
-                    } else {
-                        viewModel.constructPinQuick(geoPoint)
-                    }
-                    newPinLogical // ◀️◀️◀️ and return back... yeah
-// 👺👺👺👺👺👺
-                },
-                onPinClick = { context ->
-                    Toast.makeText(context, "PIN CLICKED:", Toast.LENGTH_SHORT).show()
-                    // <HERE PIN CLICK CALLBACK IMPLEMENTATION>  // ◀️◀️◀️ and return back... yeah
-                }
-            ).getMapView()
+            osmdroidManager.getMapView()
         },
         update = { /* nothing here - not using native MVVM updates */  }
     )

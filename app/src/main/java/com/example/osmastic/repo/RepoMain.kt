@@ -1,13 +1,20 @@
 package com.example.osmastic.repo
 
+import android.content.Context
 import com.example.osmastic.PinLogical
+import com.example.osmastic.db.AppDatabase
 import com.example.osmastic.db.PinDao
 import com.example.osmastic.db.Pin
 
 class RepoPin(
-    private val dao: PinDao,
+    fuckingContext: Context,
+//    private val dao: PinDao,
 //    private val radio: MeshtasticRadio
 ) {
+
+        private val database by lazy { AppDatabase.getDatabase(fuckingContext) }
+        private val dao = database.pinDao()
+
     private sealed class ValidationResult {
         object Valid : ValidationResult()
         data class Invalid(val errors: List<String>) : ValidationResult()
