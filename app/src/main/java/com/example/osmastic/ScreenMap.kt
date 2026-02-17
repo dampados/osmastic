@@ -80,14 +80,15 @@ import org.osmdroid.tileprovider.tilesource.XYTileSource
 
 class LabeledMarker(
     mapView: MapView,
+    private val pinLogicalId: Int,
     private val label: String,
-    private val rotation: Float? = null
+    private val rotation: Float? = null,
 ) : Marker(mapView) {
 
     init {
         // 👇 NULL = upright (flat=false), VALUE = rotates with map (flat=true)
         isFlat = rotation != null
-        setAnchor(ANCHOR_CENTER, ANCHOR_CENTER)
+//        setAnchor(ANCHOR_CENTER, ANCHOR_BOTTOM) // overridden anyway
         rotation?.let { setRotation(it) }
     }
     private val textPaint = TextPaint().apply {
@@ -139,12 +140,13 @@ data class StateMapModel(
         mapZoom = 11.0,
         mapBearing = 0f
     ),
-    val pins: List<PinLogical> = emptyList()
+    val pins: List<PinLogical> = emptyList(), // HOT PINS!
+    val invalidPinIds: Set<Int> = emptySet(), // INVALID PINS IDS FOR DELAYED GC!
 )
 @HiltViewModel
 class StateMapViewModel @Inject constructor(
     application: Application,
-//    private val repoPin: RepoPin, // TODO INJECT PROPERLY
+    private val repoPin: RepoPin, // TODO INJECT PROPERLY
 ) : AndroidViewModel(application) {
     val mapPrefsManager: MapPrefsManager by lazy {
         MapPrefsManager(
@@ -194,9 +196,9 @@ class StateMapViewModel @Inject constructor(
             pinPhysProps = incomingPinUI
         )
         // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
-//        viewModelScope.launch {
-//            repoPin.pushOnePinFurther(newPinLogical)
-//        }
+        viewModelScope.launch {
+            repoPin.pushOnePinFurther(newPinLogical)
+        }
         // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
 
         return newPinLogical
@@ -311,14 +313,15 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
         val rotationDegrees = incomingLogicalPin.pinPhysProps.rotationByte?.let { it * 360f / 255f }
 
         val marker = LabeledMarker(mapView,
-                        incomingLogicalPin.pinPhysProps.label ?: "",
+                        pinLogicalId = incomingLogicalPin.pinLogicalId,
+                        label = incomingLogicalPin.pinPhysProps.label ?: "",
                         rotation = rotationDegrees,
             ).apply {
             position = incomingLogicalPin.pinPhysProps.geoPoint
             textLabelBackgroundColor = 0x00000000 // TRANSPARENT (sorry for magic number, less imports)
             textLabelFontSize = 72
             setTextIcon("${incomingLogicalPin.pinPhysProps.iconUnicode}")
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
 
             // redefine click action!!!
             setInfoWindow(null)
@@ -369,7 +372,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 if (!isLongTap) {
                     Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
                 }
 
                 val newPinLogical = if (isLongTap) {                // WOW val assigning through IF

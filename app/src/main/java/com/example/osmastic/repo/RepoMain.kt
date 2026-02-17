@@ -1,13 +1,13 @@
 package com.example.osmastic.repo
 
 import android.content.Context
+import android.widget.Toast
 import com.example.osmastic.PinLogical
 import com.example.osmastic.db.AppDatabase
-import com.example.osmastic.db.PinDao
 import com.example.osmastic.db.Pin
 
 class RepoPin(
-    fuckingContext: Context,
+    val fuckingContext: Context,
 //    private val dao: PinDao,
 //    private val radio: MeshtasticRadio
 ) {
@@ -20,18 +20,18 @@ class RepoPin(
         data class Invalid(val errors: List<String>) : ValidationResult()
     }
 
-    private fun validatePin(incomginPinLogical: PinLogical): ValidationResult {
+    private fun validatePin(incomingPinLogical: PinLogical): ValidationResult {
         val errors = mutableListOf<String>()
 
-/*ICON*/if (incomginPinLogical.pinPhysProps.iconUnicode.codePointCount(0, incomginPinLogical.pinPhysProps.iconUnicode.length) != 1) {
+/*ICON*/if (incomingPinLogical.pinPhysProps.iconUnicode.codePointCount(0, incomingPinLogical.pinPhysProps.iconUnicode.length) != 1) {
             errors.add("Icon must be a single character")
         }
-/*LABEL*/incomginPinLogical.pinPhysProps.label?.let {
+/*LABEL*/incomingPinLogical.pinPhysProps.label?.let {
             if (it.length > 20) {
                 errors.add("Label must be ≤ 20 characters")
             }
         }
-/*TTL*/ val ttlHours = incomginPinLogical.pinPhysProps.hoursTTL
+/*TTL*/ val ttlHours = incomingPinLogical.pinPhysProps.hoursTTL
         if (ttlHours !in 0..255) {
             errors.add("TTL must be 0-255 hours")
         }
@@ -63,10 +63,13 @@ class RepoPin(
             is ValidationResult.Valid -> {
                 val idInternal = dao.insert(convertToEntity(incomingPinLogical))
                 // <radio send here?>
+                Toast.makeText(fuckingContext, "SAVED, logID: ${incomingPinLogical.pinLogicalId}", Toast.LENGTH_SHORT).show()
                 return true
             }
             is ValidationResult.Invalid -> {
                 // Log errors, emit rollback, etc
+                Toast.makeText(fuckingContext, "ROLLBACK, logID: ${incomingPinLogical.pinLogicalId}", Toast.LENGTH_SHORT).show()
+
                 return false
             }
         }
