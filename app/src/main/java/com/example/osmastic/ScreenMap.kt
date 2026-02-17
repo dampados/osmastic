@@ -29,6 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,11 +77,10 @@ import kotlin.coroutines.suspendCoroutine
 import com.example.osmastic.repo.RepoPin
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
-import org.osmdroid.tileprovider.tilesource.XYTileSource
 
 class LabeledMarker(
     mapView: MapView,
-    private val pinLogicalId: Int,
+    val pinLogicalId: Int,
     private val label: String,
     private val rotation: Float? = null,
 ) : Marker(mapView) {
@@ -115,7 +115,6 @@ data class ViewPort(
     val mapZoom: Double, // obvious
     val mapBearing: Float
 )
-
 data class PinUI(
     val geoPoint: GeoPoint,
     val iconUnicode: String = "📍",
@@ -157,7 +156,7 @@ class StateMapViewModel @Inject constructor(
     }
     private val _mapStateRW = MutableStateFlow(StateMapModel()) // RW, but private!
     val mapStateR: StateFlow<StateMapModel> = _mapStateRW.asStateFlow() // readonly!
-    private var jobViewPortStateHotUpdate: Job? = null 
+    private var jobViewPortStateHotUpdate: Job? = null
     private var jobViewPortStateColdUpdate: Job? = null
 
     // ➡️➡️➡️ INTERACTIVE
@@ -197,7 +196,15 @@ class StateMapViewModel @Inject constructor(
         )
         // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
         viewModelScope.launch {
-            repoPin.pushOnePinFurther(newPinLogical)
+//            repoPin.pushOnePinFurther(newPinLogical)
+            val validated = repoPin.pushOnePinFurther(newPinLogical)
+            if (!validated) {
+                _mapStateRW.update { current ->
+                    current.copy(
+                        invalidPinIds = current.invalidPinIds + newPinLogical.pinLogicalId
+                    )
+                }
+            }
         }
         // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
 
@@ -209,6 +216,11 @@ class StateMapViewModel @Inject constructor(
         pushOnePinLogicalToModel(PinUI(geoPoint))
     fun constructPinFull(pinUI: PinUI) =
         pushOnePinLogicalToModel(pinUI)
+    fun updateInvalidPinIds(incomingRemainingIds: Set<Int>) {
+        _mapStateRW.update { current ->
+            current.copy(invalidPinIds = incomingRemainingIds)
+        }
+    }
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
@@ -335,6 +347,27 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
         mapView.overlays.add(marker)
         mapView.invalidate()
     }
+    fun doGarbageCollect(invalidIds: Set<Int>): Set<Int> {
+        val existing = mapView.overlays
+            .filterIsInstance<LabeledMarker>()
+            .map { it.pinLogicalId}
+            .toSet()
+
+        val canRemove = invalidIds.intersect(existing)
+        val cannotRemove = invalidIds - existing
+
+        canRemove.forEach { id ->
+            val marker = mapView.overlays.find { it is LabeledMarker && it.pinLogicalId == id }
+            mapView.overlays.remove(marker)
+        }
+
+        if (canRemove.isNotEmpty()) {
+            mapView.invalidate()
+        }
+
+        // Return what we COULDNT remove (not yet born)
+        return cannotRemove
+    }
     // 🎊🎊🎊 FUN SECTION 🎊🎊🎊
 }
 // ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
@@ -391,12 +424,41 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         )
     }
 
+    LaunchedEffect(stateOfModel.invalidPinIds) {
+
+        val invalidPinIds = stateOfModel.invalidPinIds
+
+        if (invalidPinIds.isNotEmpty()) {
+
+            delay(5000) //  TODO DEBUG, visualising, remove later
+
+            val couldNotRemove = osmdroidManager.doGarbageCollect(invalidPinIds)
+            viewModel.updateInvalidPinIds(couldNotRemove)
+        }
+
+        Toast.makeText(ctx, "GC", Toast.LENGTH_SHORT).show()
+    }
+
     AndroidView<MapView>(
         factory = { ctx ->
             osmdroidManager.getMapView()
         },
-        update = { /* nothing here - not using native MVVM updates */  }
+        update = { /* nothing here - not using native MVVM updates */
+            /* OPPAA, now we use, TOP -> BOTTOM callback! */
+
+            Toast.makeText(ctx, "UPDATE CALLBACK", Toast.LENGTH_SHORT).show()
+
+//            val invalidIds = viewModel.mapStateR.value.invalidPinIds
+//            if (invalidIds.isNotEmpty()) {
+//                // Ask Osmdroid what it COULDN'T remove
+//                val couldNotRemove = osmdroidManager.doGarbageCollect(invalidIds)
+//                viewModel.updateInvalidPinIds(couldNotRemove)
+//            }
+        }
     )
+
+
+
 
     Box(
         contentAlignment = Alignment.Center,
@@ -408,6 +470,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             Text("Zoom: ${stateOfModel.viewPort.mapZoom}", fontSize = 14.sp)
             Text("${stateOfModel.viewPort.mapCenter}", fontSize = 14.sp)
             Text("${stateOfModel.viewPort.mapBearing}", fontSize = 14.sp)
+            Text("${stateOfModel.invalidPinIds}", fontSize = 15.sp)
 //            Text("Center: ${viewModel.uiState.mapCenter.latitude}, ${viewModel.uiState.mapCenter.longitude}")
 
         }
