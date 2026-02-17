@@ -145,7 +145,7 @@ data class StateMapModel(
 @HiltViewModel
 class StateMapViewModel @Inject constructor(
     application: Application,
-    private val repoPin: RepoPin, // TODO INJECT PROPERLY
+    val repoPin: RepoPin, // TODO INJECT PROPERLY
 ) : AndroidViewModel(application) {
     val mapPrefsManager: MapPrefsManager by lazy {
         MapPrefsManager(
@@ -164,22 +164,6 @@ class StateMapViewModel @Inject constructor(
         val currentViewPort = _mapStateRW.value.viewPort
         mapPrefsManager.saveMapPos(currentViewPort)
     }
-    fun updateViewPort(incomingViewPort: ViewPort) {
-        //#1 - RAM FLUSH - QUICKER!
-        jobViewPortStateHotUpdate?.cancel()
-        jobViewPortStateHotUpdate = viewModelScope.launch {
-            delay(200L)
-            _mapStateRW.update { current ->
-                current.copy(viewPort = incomingViewPort)
-            }
-        }
-        //#2 COLD FLUSH - RELAXED!
-        jobViewPortStateColdUpdate?.cancel()
-        jobViewPortStateColdUpdate = viewModelScope.launch {
-            delay(1000L)
-            saveViewPortToColdStorage()
-        }
-    }
     private fun pushOnePinLogicalToModel(incomingPinUI: PinUI): PinLogical {
         val editorHashInt = SecureRandom().nextInt(1 shl 24)
         val calculatedExpTimestamp = if (incomingPinUI.hoursTTL == 0) {
@@ -194,9 +178,16 @@ class StateMapViewModel @Inject constructor(
             expirationTimestamp = calculatedExpTimestamp,
             pinPhysProps = incomingPinUI
         )
+
+        _mapStateRW.update { current ->
+            current.copy(
+                pins = current.pins + newPinLogical  // ← ADD TO PINS LIST
+            )
+        }
+
+
         // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
         viewModelScope.launch {
-//            repoPin.pushOnePinFurther(newPinLogical)
             val validated = repoPin.pushOnePinFurther(newPinLogical)
             if (!validated) {
                 _mapStateRW.update { current ->
@@ -212,15 +203,37 @@ class StateMapViewModel @Inject constructor(
     }
 
     // AVAILABLE METHODS
-    fun constructPinQuick(geoPoint: GeoPoint) =
+    fun updateViewPort(incomingViewPort: ViewPort) { // DEBOUNCING FUNC
+        //#1 - RAM FLUSH - QUICKER!
+        jobViewPortStateHotUpdate?.cancel()
+        jobViewPortStateHotUpdate = viewModelScope.launch {
+            delay(200L)
+            _mapStateRW.update { current ->
+                current.copy(viewPort = incomingViewPort)
+            }
+        }
+        //#2 COLD FLUSH - RELAXED!
+        jobViewPortStateColdUpdate?.cancel()
+        jobViewPortStateColdUpdate = viewModelScope.launch {
+            delay(1000L)
+            saveViewPortToColdStorage()
+        }
+    }
+    fun constructAndPushPinQuick(geoPoint: GeoPoint) =
         pushOnePinLogicalToModel(PinUI(geoPoint))
-    fun constructPinFull(pinUI: PinUI) =
+    fun constructAndPushPinFull(pinUI: PinUI) =
         pushOnePinLogicalToModel(pinUI)
     fun updateInvalidPinIds(incomingRemainingIds: Set<Int>) {
         _mapStateRW.update { current ->
             current.copy(invalidPinIds = incomingRemainingIds)
         }
     }
+    fun updateAllPins(incomingPins: List<PinLogical>) {
+        _mapStateRW.update { current ->
+            current.copy(pins = incomingPins)
+        }
+    }
+
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
@@ -232,7 +245,8 @@ class StateMapViewModel @Inject constructor(
 // ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
 class OsmdroidManager(private val appContext: Context,                 // CLASS WRAPPER AROUND THE MapView !!!
                       private val onMapMovedCallback: (ViewPort) -> Unit, // SIMPLE CALLBACK! TO HERE WE PLACE LATER WHAT WILL UPDATE BOTH HOT + COLD!
-                      private val onMapReadyCallback: suspend () -> ViewPort, // SIMPLE CALLBACK! we put cold state loading call!!! on the event afer which its safe
+                      private val onMapReadyViewPortCallback: suspend () -> ViewPort, // SIMPLE CALLBACK! we put cold state loading call!!! on the event afer which its safe
+                      private val onMapReadyInitialPinsCallback: suspend () -> List<PinLogical>,
                       private val onTapCallback: suspend (Context, Boolean, GeoPoint) -> PinLogical, // TAPS REACTION CALLBACK <- a logical pin
                       private val onPinClick: suspend (Context) -> Unit
 ) {
@@ -300,12 +314,38 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
             // ON MAP READY CATCH
             addOnFirstLayoutListener { _, _, _, _, _ ->
                 CoroutineScope(Dispatchers.Main).launch {
-                    val coldViewPort = onMapReadyCallback() // ACTUALLY READ -> business logic viewmodel -> come back here
+                    val coldViewPort = onMapReadyViewPortCallback() // ACTUALLY READ -> business logic viewmodel -> come back here
                     setViewport(coldViewPort) // LOCAL ONLY
+                    val coldPins = onMapReadyInitialPinsCallback()
+                    pushManyPinsIntoPhysicalView(coldPins) // LOCAL ONLY
                 }
             }
             // 🤙🤙🤙 CALLBACK SECTION 🤙🤙🤙
             // 🚧🚧🚧 CONFIG 🚧🚧🚧
+        }
+    }
+
+    private fun constructMarkerFromLogicalPin(pin: PinLogical): LabeledMarker {
+        val rotationDegrees = pin.pinPhysProps.rotationByte?.let { it * 360f / 255f }
+
+        return LabeledMarker(
+            mapView,
+            pinLogicalId = pin.pinLogicalId,
+            label = pin.pinPhysProps.label ?: "",
+            rotation = rotationDegrees
+        ).apply {
+            position = pin.pinPhysProps.geoPoint
+            textLabelBackgroundColor = 0x00000000
+            textLabelFontSize = 72
+            setTextIcon(pin.pinPhysProps.iconUnicode)
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            setInfoWindow(null)
+            setOnMarkerClickListener { _, _ ->
+                CoroutineScope(Dispatchers.Main).launch {
+                    onPinClick(appContext)
+                }
+                true
+            }
         }
     }
 
@@ -320,31 +360,17 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
 //            0  // 0ms = instant
         )
     }
-    fun pushOnePinIntoPhysicalView(incomingLogicalPin: PinLogical) {
-        // LOGICAL -> PHYSICAL ANGLE CONVERSION 255 -> 360
-        val rotationDegrees = incomingLogicalPin.pinPhysProps.rotationByte?.let { it * 360f / 255f }
 
-        val marker = LabeledMarker(mapView,
-                        pinLogicalId = incomingLogicalPin.pinLogicalId,
-                        label = incomingLogicalPin.pinPhysProps.label ?: "",
-                        rotation = rotationDegrees,
-            ).apply {
-            position = incomingLogicalPin.pinPhysProps.geoPoint
-            textLabelBackgroundColor = 0x00000000 // TRANSPARENT (sorry for magic number, less imports)
-            textLabelFontSize = 72
-            setTextIcon("${incomingLogicalPin.pinPhysProps.iconUnicode}")
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-
-            // redefine click action!!!
-            setInfoWindow(null)
-            setOnMarkerClickListener { _, _ ->
-                CoroutineScope(Dispatchers.Main).launch {
-                    onPinClick(appContext)
-                }
-                true
-            }
-        }
+    fun pushOnePinIntoPhysicalView(incomingPin: PinLogical) {
+        val marker = constructMarkerFromLogicalPin(incomingPin)
         mapView.overlays.add(marker)
+        mapView.invalidate()
+    }
+    fun pushManyPinsIntoPhysicalView(incomingPins: List<PinLogical>) {
+        if (incomingPins.isEmpty()) return
+
+        val markers = incomingPins.map { incomingPin -> constructMarkerFromLogicalPin(incomingPin) }
+        mapView.overlays.addAll(markers)
         mapView.invalidate()
     }
     fun doGarbageCollect(invalidIds: Set<Int>): Set<Int> {
@@ -392,13 +418,18 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
 
 //    val osmdroidManager = remember {
-    val osmdroidManager = retain {
+    val osmdroidManager = retain { // TODO remember or retain now? old navigation 1
         OsmdroidManager( ctx,
             onMapMovedCallback = { viewModel.updateViewPort(it) },
-            onMapReadyCallback = {
+            onMapReadyViewPortCallback = {
                 val coldViewPort = viewModel.mapPrefsManager.getInitialMapPosition()
                 viewModel.updateViewPort(coldViewPort)
                 coldViewPort        // ◀️◀️◀️ and return back... yeah
+            },
+            onMapReadyInitialPinsCallback = {
+                val coldPins = viewModel.repoPin.getAllPins()
+                viewModel.updateAllPins(coldPins)
+                coldPins            // ◀️◀️◀️ and return back... yeah
             },
             onTapCallback = { context, isLongTap, geoPoint,  ->
 // 👺👺👺👺👺👺
@@ -410,9 +441,9 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
 
                 val newPinLogical = if (isLongTap) {                // WOW val assigning through IF
                     val newPinUI = showPinCreationModal(geoPoint)  // --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type
-                    viewModel.constructPinFull(newPinUI)
+                    viewModel.constructAndPushPinFull(newPinUI)
                 } else {
-                    viewModel.constructPinQuick(geoPoint)
+                    viewModel.constructAndPushPinQuick(geoPoint)
                 }
                 newPinLogical // ◀️◀️◀️ and return back... yeah
 // 👺👺👺👺👺👺
@@ -471,6 +502,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             Text("${stateOfModel.viewPort.mapCenter}", fontSize = 14.sp)
             Text("${stateOfModel.viewPort.mapBearing}", fontSize = 14.sp)
             Text("${stateOfModel.invalidPinIds}", fontSize = 15.sp)
+            Text("${stateOfModel.pins}", fontSize = 10.sp)
 //            Text("Center: ${viewModel.uiState.mapCenter.latitude}, ${viewModel.uiState.mapCenter.longitude}")
 
         }
