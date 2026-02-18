@@ -1,7 +1,6 @@
 package com.example.osmastic.db
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -26,9 +25,9 @@ interface PinDao {
     @Update
     suspend fun update(pin: Pin)
 
-    // DELETE ONE: Delete a specific pin
-    @Delete
-    suspend fun delete(pin: Pin)
+    // BULK BY LOGICAL ID
+    @Query("DELETE FROM pin WHERE pinLogicalId IN (:pinLogicalIds)")
+    suspend fun deleteBulkByLogicalIds(pinLogicalIds: Set<Int>): Int
 
 }
 
@@ -50,3 +49,6 @@ interface PinDao {
 //    @Query("DELETE FROM pin WHERE id = :id")
 //    suspend fun deleteById(id: Int)
 
+//// DELETE ONE: Delete a specific pin
+//@Delete
+//suspend fun delete(pin: Pin)

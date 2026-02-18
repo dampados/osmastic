@@ -78,9 +78,6 @@ class RepoPin(
             }
         }
     }
-
-//    = withContext(Dispatchers.IO)
-
     suspend fun getAllPins(): List<PinLogical> {
         return dao.getAll().map { entity ->
             PinLogical(
@@ -98,6 +95,9 @@ class RepoPin(
                 )
             )
         }
+    }
+    suspend fun deleteBulkByLogicalIds(pinLogicalIds: Set<Int>): Int {
+        return dao.deleteBulkByLogicalIds(pinLogicalIds)
     }
 
 // 🎊🎊🎊 INTERACTIVE PART 🎊🎊🎊

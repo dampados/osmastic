@@ -15,6 +15,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -77,6 +78,11 @@ fun PinCreationDialog(
                     Tab(
                         selected = selectedTab == 4,
                         onClick = { selectedTab = 4 },
+                        text = { Text("⏲️") }
+                    )
+                    Tab(
+                        selected = selectedTab == 5,
+                        onClick = { selectedTab = 5 },
                         text = { Text("🙈") }
                     )
                 }
@@ -104,7 +110,6 @@ fun PinCreationDialog(
                         )
                     }
                     3 -> {
-//                        val rotationInDegs = pinUnderConstruction.rotationByte?.toFloat() ?: 0f
                         val rotationInDegs = (pinUnderConstruction.rotationByte ?: 0) * (360f/255f)
                         Text("Rotation: ${rotationInDegs.toInt()}°")
                         Slider(
@@ -120,6 +125,19 @@ fun PinCreationDialog(
                         )
                     }
                     4 -> {
+                        var uiHoursTTL = pinUnderConstruction.hoursTTL
+                            Text("TTL: $uiHoursTTL hours")
+                            Slider(
+                                value = uiHoursTTL.toFloat(),
+//                                onValueChange = { ttlHours = it.toInt() },
+                                onValueChange = { sliderValue ->
+                                    pinUnderConstruction = pinUnderConstruction.copy(hoursTTL = sliderValue.toInt())
+                                },
+                                valueRange = 1f..255f,
+                                steps = 253
+                            )
+                    }
+                    5 -> {
                         Switch(
                             checked = pinUnderConstruction.isHiddenBeforeTTL,
                             onCheckedChange = {

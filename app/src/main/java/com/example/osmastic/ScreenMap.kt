@@ -88,10 +88,14 @@ class LabeledMarker(
         }
     }
 }
+data class PinRemoveInquiry(
+    val pinLogicalId: Int,
+    val reachedDB: Boolean,
+)
 data class ViewPort(
     val mapCenter: GeoPoint, // default loc, SPB
     val mapZoom: Double, // obvious
-    val mapBearing: Float
+    val mapBearing: Float,
 )
 data class PinUI(
     val geoPoint: GeoPoint,
@@ -106,7 +110,7 @@ data class PinLogical(
     val lamportEpoch: Int = 1,
     val editorHash: ByteArray,
     val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
-    val pinPhysProps: PinUI
+    val pinPhysProps: PinUI,
 )
 
 
@@ -118,7 +122,7 @@ data class StateMapModel(
         mapBearing = 0f
     ),
     val pins: List<PinLogical> = emptyList(), // HOT PINS!
-    val invalidPinIds: Set<Int> = emptySet(), // INVALID PINS IDS FOR DELAYED GC!
+    val pinRemoveInquiries: Set<PinRemoveInquiry> = emptySet(), // INVALID PINS IDS FOR DELAYED GC!
 )
 @HiltViewModel
 class StateMapViewModel @Inject constructor(
@@ -143,11 +147,14 @@ class StateMapViewModel @Inject constructor(
         mapPrefsManager.saveMapPos(currentViewPort)
     }
     private fun pushOnePinLogicalToModel(incomingPinUI: PinUI): PinLogical {
+        val HOUR = 3600
+        val MINUTE = 60 // todo UGLY DEBUG remove later
+
         val editorHashInt = SecureRandom().nextInt(1 shl 24)
         val calculatedExpTimestamp = if (incomingPinUI.hoursTTL == 0) {
             0L  // eternal
         } else {
-            System.currentTimeMillis() + (incomingPinUI.hoursTTL * 3600 * 1000)
+            System.currentTimeMillis() + (incomingPinUI.hoursTTL * MINUTE * 1000)
         }
 
         val newPinLogical = PinLogical(
@@ -168,9 +175,13 @@ class StateMapViewModel @Inject constructor(
         viewModelScope.launch {
             val validated = repoPin.pushOnePinFurther(newPinLogical)
             if (!validated) {
+                val faultyPin = PinRemoveInquiry(
+                    pinLogicalId = newPinLogical.pinLogicalId,
+                    reachedDB = false,
+                )
                 _mapStateRW.update { current ->
                     current.copy(
-                        invalidPinIds = current.invalidPinIds + newPinLogical.pinLogicalId
+                        pinRemoveInquiries = current.pinRemoveInquiries + faultyPin
                     )
                 }
             }
@@ -201,22 +212,53 @@ class StateMapViewModel @Inject constructor(
         pushOnePinLogicalToModel(PinUI(geoPoint))
     fun constructAndPushPinFull(pinUI: PinUI) =
         pushOnePinLogicalToModel(pinUI)
-    fun updateInvalidPinIds(incomingRemainingInvalidIds: Set<Int>, incomingReallyRemoved: Set<Int>) {
-//        _mapStateRW.update { current ->
-//            current.copy(invalidPinIds = incomingRemainingIdsToBeRemoved)
-//        }
-////        _mapStateRW.update { currentPins ->
-////            currentPins.filterNot { it.pinLogicalId in incomingReallyRemoved }
-////        }
+
+
+    fun collectGarbageAllLayers(incomingGarbageSnapshot: Set<PinRemoveInquiry>) {
+
+        // #0 prep for bulk - snapshot ITS IMPORTANT to catch the state HERE
+        val idsReachedDB = incomingGarbageSnapshot
+            .filter { it.reachedDB }
+            .map { it.pinLogicalId }
+            .toSet()
+
+        // #1 side effect run based on pinRemoveInquiry flag REPOSITORY
+        viewModelScope.launch {
+            repoPin.deleteBulkByLogicalIds(idsReachedDB)
+        }
+
+        //#2 remove from physical!
+        //wait for pins that werent removed - wait BC THIS MIGHT BE CALLED BEFORE PIN REACHES THE VERY CANVAS
+
+
+        //#3 calculate delta - WHAT WAS ACTUALLY REMOVED!
+
+        //#4 substract MVU pins with what was REALLY REMOVED FROM ROOM + PHYSICAL
+
+        //#5 replace all pins in pinRemoveInquiries on what WASNT REMOVED (if empty - okay)
+    }
+
+
+    fun replaceInvalidPinIds(incomingInquiries: Set<PinRemoveInquiry>, /*incomingReallyRemoved: Set<Int>*/) {
         _mapStateRW.update { current ->
             current.copy(
-                invalidPinIds = incomingRemainingInvalidIds,
-                pins = current.pins.filterNot { it.pinLogicalId in incomingReallyRemoved }
+                pinRemoveInquiries = incomingInquiries,
+//                pins = current.pins.filterNot { it.pinLogicalId in incomingReallyRemoved }
             )
         }
     }
+    fun subtractAllPins(incomingInvalidPinsIds: Set<Int>) {
+        _mapStateRW.update { current ->
+            current.copy(
+                pins = current.pins.filterNot { it.pinLogicalId in incomingInvalidPinsIds }
+            )
+        }
+    }
+
+
+
     // from cold and bulk, thats the idea for this one for now.
-    fun updateAllPins(incomingPins: List<PinLogical>) {
+    fun replaceAllPins(incomingPins: List<PinLogical>) {
         _mapStateRW.update { current ->
             current.copy(pins = incomingPins)
         }
@@ -262,7 +304,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             },
             onMapReadyInitialPinsCallback = {
                 val coldPins = viewModel.repoPin.getAllPins()
-                viewModel.updateAllPins(coldPins)
+                viewModel.replaceAllPins(coldPins)
                 coldPins            // ◀️◀️◀️ and return back... yeah
             },
             onTapShortCallback = { context, geoPoint,  ->
@@ -281,17 +323,65 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         )
     }
 
+    // 🎣🎣🎣 EFFECTS BLOCK 🎣🎣🎣
     // TOP -> BOTTOM REACTION on MVU STATE CHANCGED GRANULAR = invalidPinIds
-    LaunchedEffect(stateOfModel.invalidPinIds) {
-        val invalidPinIds = stateOfModel.invalidPinIds
-        if (invalidPinIds.isNotEmpty()) {
+    LaunchedEffect(stateOfModel.pinRemoveInquiries) {
+
+        if (stateOfModel.pinRemoveInquiries.isNotEmpty()) {
             delay(5000) //  TODO DEBUG, visualising, remove later
-            val couldNotRemove = osmdroidManager.doGarbageCollect(invalidPinIds)
-            val wereReallyRemovedDelta = invalidPinIds - couldNotRemove
-            viewModel.updateInvalidPinIds(couldNotRemove, wereReallyRemovedDelta)
+
+            val pinRemoveInquiriesSnapshot = stateOfModel.pinRemoveInquiries
+
+            // #0 prep for bulk - snapshot ITS IMPORTANT to catch the state HERE
+            val idsReachedDB = pinRemoveInquiriesSnapshot
+                .filter { it.reachedDB }
+                .map { it.pinLogicalId }
+                .toSet()
+
+            // #1 side effect run based on pinRemoveInquiry flag REPOSITORY
+
+
+            //#2 remove from physical!
+            //wait for pins that werent removed (erros? who cares)
+
+            //#3 calculate delta - WHAT WAS ACTUALLY REMOVED!
+
+            //#4 substract MVU pins with what was REALLY REMOVED FROM ROOM + PHYSICAL
+
+            //#5 replace all pins in pinRemoveInquiries on what WASNT REMOVED (if empty - okay)
+
+//            val couldNotRemove = osmdroidManager.doGarbageCollect(pinRemoveInquiries)
+//            val wereReallyRemovedDelta = pinRemoveInquiries - couldNotRemove
+//            viewModel.replaceInvalidPinIds(couldNotRemove)
         }
         Toast.makeText(ctx, "GC", Toast.LENGTH_SHORT).show()
     }
+
+
+
+    LaunchedEffect(Unit) {
+        while(true) {
+            delay(60_000) // Every minute
+            val nowTimestamp = System.currentTimeMillis()
+
+            val expiredIds = stateOfModel.pins
+                .filter { pin ->
+                    pin.expirationTimestamp != 0L && // SKIP ETERNAL PINS 0L (long)
+                            pin.expirationTimestamp <= nowTimestamp
+                }
+                .map { it.pinLogicalId }
+                .toSet()
+
+            if (expiredIds.isNotEmpty()) {
+//                viewModel.updateInvalidPinIds(expiredIds, Null) // Reuse existing GC!
+            }
+        }
+    }
+
+
+
+
+    // 🎣🎣🎣 EFFECTS BLOCK 🎣🎣🎣
 
     AndroidView<MapView>(
         factory = { ctx ->
@@ -316,7 +406,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             Text("Zoom: ${stateOfModel.viewPort.mapZoom}", fontSize = 14.sp)
             Text("${stateOfModel.viewPort.mapCenter}", fontSize = 14.sp)
             Text("${stateOfModel.viewPort.mapBearing}", fontSize = 14.sp)
-            Text("${stateOfModel.invalidPinIds}", fontSize = 15.sp)
+            Text("${stateOfModel.pinRemoveInquiries}", fontSize = 15.sp)
             Text("${stateOfModel.pins}", fontSize = 10.sp)
 //            Text("Center: ${viewModel.uiState.mapCenter.latitude}, ${viewModel.uiState.mapCenter.longitude}")
 
