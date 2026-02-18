@@ -3,7 +3,6 @@
 package com.example.osmastic
 
 import android.app.Application
-import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -17,18 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
 //new ones:
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,15 +25,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.retain.retain
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 // import our db/mapprefsmanager
@@ -53,21 +38,12 @@ import com.example.osmastic.db.MapPrefsManager
 import kotlinx.coroutines.launch
 // DATASTORE needs these to parse:
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
-import org.osmdroid.views.CustomZoomButtonsController
 // manual IMPORT of MapListener - thats our emit cathcher to react! but we react debouncing . . .
-import org.osmdroid.events.MapListener
-import org.osmdroid.events.ScrollEvent
-import org.osmdroid.events.ZoomEvent
 // manual import for rotation support
-import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
 // taps support
-import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import java.security.SecureRandom
 import kotlin.coroutines.Continuation
@@ -77,6 +53,8 @@ import kotlin.coroutines.suspendCoroutine
 import com.example.osmastic.repo.RepoPin
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
+// MODALS IMPORT
+import com.example.osmastic.modal.PinCreationDialog
 
 class LabeledMarker(
     mapView: MapView,
@@ -145,7 +123,7 @@ data class StateMapModel(
 @HiltViewModel
 class StateMapViewModel @Inject constructor(
     application: Application,
-    val repoPin: RepoPin, // TODO INJECT PROPERLY
+    val repoPin: RepoPin,
 ) : AndroidViewModel(application) {
     val mapPrefsManager: MapPrefsManager by lazy {
         MapPrefsManager(
@@ -223,11 +201,21 @@ class StateMapViewModel @Inject constructor(
         pushOnePinLogicalToModel(PinUI(geoPoint))
     fun constructAndPushPinFull(pinUI: PinUI) =
         pushOnePinLogicalToModel(pinUI)
-    fun updateInvalidPinIds(incomingRemainingIds: Set<Int>) {
+    fun updateInvalidPinIds(incomingRemainingInvalidIds: Set<Int>, incomingReallyRemoved: Set<Int>) {
+//        _mapStateRW.update { current ->
+//            current.copy(invalidPinIds = incomingRemainingIdsToBeRemoved)
+//        }
+////        _mapStateRW.update { currentPins ->
+////            currentPins.filterNot { it.pinLogicalId in incomingReallyRemoved }
+////        }
         _mapStateRW.update { current ->
-            current.copy(invalidPinIds = incomingRemainingIds)
+            current.copy(
+                invalidPinIds = incomingRemainingInvalidIds,
+                pins = current.pins.filterNot { it.pinLogicalId in incomingReallyRemoved }
+            )
         }
     }
+    // from cold and bulk, thats the idea for this one for now.
     fun updateAllPins(incomingPins: List<PinLogical>) {
         _mapStateRW.update { current ->
             current.copy(pins = incomingPins)
@@ -242,161 +230,7 @@ class StateMapViewModel @Inject constructor(
 
 
 
-// ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
-class OsmdroidManager(private val appContext: Context,                 // CLASS WRAPPER AROUND THE MapView !!!
-                      private val onMapMovedCallback: (ViewPort) -> Unit, // SIMPLE CALLBACK! TO HERE WE PLACE LATER WHAT WILL UPDATE BOTH HOT + COLD!
-                      private val onMapReadyViewPortCallback: suspend () -> ViewPort, // SIMPLE CALLBACK! we put cold state loading call!!! on the event afer which its safe
-                      private val onMapReadyInitialPinsCallback: suspend () -> List<PinLogical>,
-                      private val onTapCallback: suspend (Context, Boolean, GeoPoint) -> PinLogical, // TAPS REACTION CALLBACK <- a logical pin
-                      private val onPinClick: suspend (Context) -> Unit
-) {
-    private val mapView: MapView // OUTSOURCED MAPVIEW !!!
 
-    init { // FACTORY ONE TIME INSTANTIATION
-        mapView = MapView(appContext).apply {
-            // 🚧🚧🚧 CONFIG 🚧🚧🚧
-            setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(true)
-            setUseDataConnection(true)
-            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-
-            // 🍰🍰🍰 OVERLAYS SECTION 🍰🍰🍰
-            val rotationOverlay = RotationGestureOverlay(this)
-            rotationOverlay.isEnabled = true
-            overlays.add(rotationOverlay)
-            // 🍰🍰🍰 OVERLAYS SECTION 🍰🍰🍰
-
-            // 🤙🤙🤙 CALLBACK SECTION 🤙🤙🤙
-            //  CATCH MOVEMENT -> VIEW -> MODEL (bottom -> top -> bottom) UPDATE
-            addMapListener(object : MapListener {
-                override fun onScroll(event: ScrollEvent?): Boolean {
-                    val newViewPort = ViewPort(
-                        mapCenter = GeoPoint(this@apply.mapCenter.latitude, this@apply.mapCenter.longitude),
-                        mapZoom = this@apply.zoomLevelDouble,
-                        mapBearing = this@apply.mapOrientation,
-                    )
-//                    viewModel.updateMapPosition(newState)
-                    onMapMovedCallback(newViewPort)
-                    return false
-                }
-                override fun onZoom(event: ZoomEvent?): Boolean {
-                    val newViewPort = ViewPort(
-                        mapCenter = GeoPoint(this@apply.mapCenter.latitude, this@apply.mapCenter.longitude),
-                        mapZoom = this@apply.zoomLevelDouble,
-                        mapBearing = this@apply.mapOrientation,
-                    )
-//                    viewModel.updateMapPosition(newState)
-                    onMapMovedCallback(newViewPort)
-                    return false
-                }
-            })
-            // CATCH TAPS -> VIEW -> MODEL (bottom -> top -> bottom)
-            overlays.add(MapEventsOverlay(object : MapEventsReceiver {
-                override fun singleTapConfirmedHelper(geoPoint: GeoPoint?): Boolean {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        geoPoint?.let { geoPoint ->                                                       // "if not null, do something".
-                            val newHotPin = onTapCallback(appContext, false, geoPoint)
-                            pushOnePinIntoPhysicalView(newHotPin)
-                        }
-                    }
-                    return true
-                }
-                override fun longPressHelper(geoPoint: GeoPoint?): Boolean {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        geoPoint?.let { geoPoint ->                                                  // "if not null, do something".
-                            val newHotPin = onTapCallback(appContext, true, geoPoint)
-                            pushOnePinIntoPhysicalView(newHotPin)
-                        }
-                    }
-                    return true
-                }
-            }))
-            // ON MAP READY CATCH
-            addOnFirstLayoutListener { _, _, _, _, _ ->
-                CoroutineScope(Dispatchers.Main).launch {
-                    val coldViewPort = onMapReadyViewPortCallback() // ACTUALLY READ -> business logic viewmodel -> come back here
-                    setViewport(coldViewPort) // LOCAL ONLY
-                    val coldPins = onMapReadyInitialPinsCallback()
-                    pushManyPinsIntoPhysicalView(coldPins) // LOCAL ONLY
-                }
-            }
-            // 🤙🤙🤙 CALLBACK SECTION 🤙🤙🤙
-            // 🚧🚧🚧 CONFIG 🚧🚧🚧
-        }
-    }
-
-    private fun constructMarkerFromLogicalPin(pin: PinLogical): LabeledMarker {
-        val rotationDegrees = pin.pinPhysProps.rotationByte?.let { it * 360f / 255f }
-
-        return LabeledMarker(
-            mapView,
-            pinLogicalId = pin.pinLogicalId,
-            label = pin.pinPhysProps.label ?: "",
-            rotation = rotationDegrees
-        ).apply {
-            position = pin.pinPhysProps.geoPoint
-            textLabelBackgroundColor = 0x00000000
-            textLabelFontSize = 72
-            setTextIcon(pin.pinPhysProps.iconUnicode)
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-            setInfoWindow(null)
-            setOnMarkerClickListener { _, _ ->
-                CoroutineScope(Dispatchers.Main).launch {
-                    onPinClick(appContext)
-                }
-                true
-            }
-        }
-    }
-
-    // 🎊🎊🎊 FUN SECTION 🎊🎊🎊
-    fun getMapView(): MapView = mapView        // 🪃🪃🪃  Factory calls this 🪃🪃🪃
-    fun setViewport(incomingViewPort: ViewPort) {
-        mapView.controller.animateTo(
-            incomingViewPort.mapCenter,
-            incomingViewPort.mapZoom,
-            700,
-            incomingViewPort.mapBearing,
-//            0  // 0ms = instant
-        )
-    }
-
-    fun pushOnePinIntoPhysicalView(incomingPin: PinLogical) {
-        val marker = constructMarkerFromLogicalPin(incomingPin)
-        mapView.overlays.add(marker)
-        mapView.invalidate()
-    }
-    fun pushManyPinsIntoPhysicalView(incomingPins: List<PinLogical>) {
-        if (incomingPins.isEmpty()) return
-
-        val markers = incomingPins.map { incomingPin -> constructMarkerFromLogicalPin(incomingPin) }
-        mapView.overlays.addAll(markers)
-        mapView.invalidate()
-    }
-    fun doGarbageCollect(invalidIds: Set<Int>): Set<Int> {
-        val existing = mapView.overlays
-            .filterIsInstance<LabeledMarker>()
-            .map { it.pinLogicalId}
-            .toSet()
-
-        val canRemove = invalidIds.intersect(existing)
-        val cannotRemove = invalidIds - existing
-
-        canRemove.forEach { id ->
-            val marker = mapView.overlays.find { it is LabeledMarker && it.pinLogicalId == id }
-            mapView.overlays.remove(marker)
-        }
-
-        if (canRemove.isNotEmpty()) {
-            mapView.invalidate()
-        }
-
-        // Return what we COULDNT remove (not yet born)
-        return cannotRemove
-    }
-    // 🎊🎊🎊 FUN SECTION 🎊🎊🎊
-}
-// ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
 
 
 
@@ -431,42 +265,31 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 viewModel.updateAllPins(coldPins)
                 coldPins            // ◀️◀️◀️ and return back... yeah
             },
-            onTapCallback = { context, isLongTap, geoPoint,  ->
-// 👺👺👺👺👺👺
-                if (!isLongTap) {
-                    Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show()
-                }
-
-                val newPinLogical = if (isLongTap) {                // WOW val assigning through IF
-                    val newPinUI = showPinCreationModal(geoPoint)  // --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type
-                    viewModel.constructAndPushPinFull(newPinUI)
-                } else {
-                    viewModel.constructAndPushPinQuick(geoPoint)
-                }
-                newPinLogical // ◀️◀️◀️ and return back... yeah
-// 👺👺👺👺👺👺
+            onTapShortCallback = { context, geoPoint,  ->
+                Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
+                viewModel.constructAndPushPinQuick(geoPoint) // ◀️◀️◀️ and return back... yeah
+            },
+            onTapLongCallback = { context, geoPoint ->
+                Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
+                val newPinUI = showPinCreationModal(geoPoint)  // 🛑🛑🛑  --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type 🛑🛑🛑
+                viewModel.constructAndPushPinFull(newPinUI)  // ◀️◀️◀️ and return back... yeah
             },
             onPinClick = { context ->
-                Toast.makeText(context, "PIN CLICKED:", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "PIN CLICKED:", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
                 // <HERE PIN CLICK CALLBACK IMPLEMENTATION>  // ◀️◀️◀️ and return back... yeah
             }
         )
     }
 
+    // TOP -> BOTTOM REACTION on MVU STATE CHANCGED GRANULAR = invalidPinIds
     LaunchedEffect(stateOfModel.invalidPinIds) {
-
         val invalidPinIds = stateOfModel.invalidPinIds
-
         if (invalidPinIds.isNotEmpty()) {
-
             delay(5000) //  TODO DEBUG, visualising, remove later
-
             val couldNotRemove = osmdroidManager.doGarbageCollect(invalidPinIds)
-            viewModel.updateInvalidPinIds(couldNotRemove)
+            val wereReallyRemovedDelta = invalidPinIds - couldNotRemove
+            viewModel.updateInvalidPinIds(couldNotRemove, wereReallyRemovedDelta)
         }
-
         Toast.makeText(ctx, "GC", Toast.LENGTH_SHORT).show()
     }
 
@@ -475,22 +298,14 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             osmdroidManager.getMapView()
         },
         update = { /* nothing here - not using native MVVM updates */
-            /* OPPAA, now we use, TOP -> BOTTOM callback! */
-
             Toast.makeText(ctx, "UPDATE CALLBACK", Toast.LENGTH_SHORT).show()
-
-//            val invalidIds = viewModel.mapStateR.value.invalidPinIds
-//            if (invalidIds.isNotEmpty()) {
-//                // Ask Osmdroid what it COULDN'T remove
-//                val couldNotRemove = osmdroidManager.doGarbageCollect(invalidIds)
-//                viewModel.updateInvalidPinIds(couldNotRemove)
-//            }
         }
     )
 
 
 
 
+    //DEBUG // TODO move somewhere smarter
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier.statusBarsPadding()
@@ -508,6 +323,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         }
     } // Box end
 
+    // ON RECOMPOSE + showDialog == true - MODAL APPEARS
     if (showDialog && dialogGeoPoint != null) {
         PinCreationDialog(
             geoPoint = dialogGeoPoint!!,
@@ -526,116 +342,3 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
 
 } // ScreenMap end
 
-@Composable
-fun PinCreationDialog(
-    geoPoint: GeoPoint,
-    onConfirm: (PinUI) -> Unit,
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(400.dp)
-                .padding(8.dp),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-
-
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-
-//
-//                Spacer(modifier = Modifier.height(16.dp))
-                val pinFromPhysical = PinUI(geoPoint = geoPoint)
-                var selectedTab by remember { mutableStateOf(0) }
-                var pinUnderConstruction by remember { mutableStateOf(pinFromPhysical) }
-
-                TabRow(selectedTabIndex = selectedTab) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        text = { Text("🧭") }
-                    )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        text = { Text("👀") }
-                    )
-                    Tab(
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
-                        text = { Text("📝") }
-                    )
-                    Tab(
-                        selected = selectedTab == 3,
-                        onClick = { selectedTab = 3 },
-                        text = { Text("🔃") }
-                    )
-                    Tab(
-                        selected = selectedTab == 4,
-                        onClick = { selectedTab = 4 },
-                        text = { Text("🙈") }
-                    )
-                }
-
-                when (selectedTab) {
-                    0 -> {
-                        Text("Position update is not yet supported (｡•́︿•̀｡) ${geoPoint.latitude}, ${geoPoint.longitude}")
-                    }
-                    1 -> {
-                        OutlinedTextField(
-                            value = pinUnderConstruction.iconUnicode,
-                            onValueChange = {
-                                pinUnderConstruction = pinUnderConstruction.copy(iconUnicode = it)
-                            },
-                            label = { Text("Emoji") }
-                        )
-                    }
-                    2 -> {
-                        OutlinedTextField(
-                            value = pinUnderConstruction.label ?: "",
-                            onValueChange = {
-                                pinUnderConstruction = pinUnderConstruction.copy(label = it.ifEmpty { null })
-                            },
-                            label = { Text("Label") }
-                        )
-                    }
-                    3 -> {
-//                        val rotationInDegs = pinUnderConstruction.rotationByte?.toFloat() ?: 0f
-                        val rotationInDegs = (pinUnderConstruction.rotationByte ?: 0) * (360f/255f)
-                        Text("Rotation: ${rotationInDegs.toInt()}°")
-                        Slider(
-                            value = rotationInDegs,
-                            onValueChange = { degrees ->
-                                val byteValue = (degrees * (255f/360f)).toInt()  // 360 → 255
-                                pinUnderConstruction = pinUnderConstruction.copy(
-                                    rotationByte = byteValue
-                                )
-                            },
-                            valueRange = 0f..360f,
-                            steps = 359
-                        )
-                    }
-                    4 -> {
-                        Switch(
-                            checked = pinUnderConstruction.isHiddenBeforeTTL,
-                            onCheckedChange = {
-                                pinUnderConstruction = pinUnderConstruction.copy(isHiddenBeforeTTL = it)
-                            }
-                        )
-                    }
-                }
-
-                Button(onClick = {
-//                    onConfirm(PinUI(geoPoint = geoPoint))
-                    onConfirm(pinUnderConstruction)
-                }) {
-                    Text("Good")
-                }
-            } // COLUMN FINISH
-        } // SURFACE FINISH
-    } // DIALOG (MODAL) FINISH
-}
