@@ -83,9 +83,20 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.0")
     // BONUS PACK FOR SHORT AND LONG TAP
 //    implementation("com.github.MKergall:osmbonuspack:6.9.0")
-
     // HILT
     implementation("com.google.dagger:hilt-android:2.57.1")
     ksp("com.google.dagger:hilt-compiler:2.57.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    // MESHTASTIC INTENT (AIDL) ATAK LIKE CONNECTION
+    // Replace 'v2.7.13' with the specific version you need
+    val meshtasticVersion = "2.7.13-open.3"
+
+    // The core AIDL interface and Intent constants
+    implementation("com.github.meshtastic.Meshtastic-Android:meshtastic-android-api:$meshtasticVersion")
+
+    // Data models (DataPacket, MeshUser, NodeInfo, etc.)
+    implementation("com.github.meshtastic.Meshtastic-Android:meshtastic-android-model:$meshtasticVersion")
+
+    // Protobuf definitions (PortNum, Telemetry, etc.)
+    implementation("com.github.meshtastic.Meshtastic-Android:meshtastic-android-proto:$meshtasticVersion")
 }

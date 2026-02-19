@@ -48,6 +48,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.qualifiers.ApplicationContext
 import jakarta.inject.Singleton
 import dagger.hilt.components.SingletonComponent
+//meshtastic
+
 
 // ⛰️⛰️⛰️ HILT module for specifying the context we need ⛰️⛰️⛰️
 @Module
