@@ -214,31 +214,6 @@ class StateMapViewModel @Inject constructor(
         pushOnePinLogicalToModel(pinUI)
 
 
-    fun collectGarbageAllLayers(incomingGarbageSnapshot: Set<PinRemoveInquiry>) {
-
-        // #0 prep for bulk - snapshot ITS IMPORTANT to catch the state HERE
-        val idsReachedDB = incomingGarbageSnapshot
-            .filter { it.reachedDB }
-            .map { it.pinLogicalId }
-            .toSet()
-
-        // #1 side effect run based on pinRemoveInquiry flag REPOSITORY
-        viewModelScope.launch {
-            repoPin.deleteBulkByLogicalIds(idsReachedDB)
-        }
-
-        //#2 remove from physical!
-        //wait for pins that werent removed - wait BC THIS MIGHT BE CALLED BEFORE PIN REACHES THE VERY CANVAS
-
-
-        //#3 calculate delta - WHAT WAS ACTUALLY REMOVED!
-
-        //#4 substract MVU pins with what was REALLY REMOVED FROM ROOM + PHYSICAL
-
-        //#5 replace all pins in pinRemoveInquiries on what WASNT REMOVED (if empty - okay)
-    }
-
-
     fun replaceInvalidPinIds(incomingInquiries: Set<PinRemoveInquiry>, /*incomingReallyRemoved: Set<Int>*/) {
         _mapStateRW.update { current ->
             current.copy(
@@ -324,62 +299,79 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     }
 
     // 🎣🎣🎣 EFFECTS BLOCK 🎣🎣🎣
+    // ♻️♻️♻️ GC ♻️♻️♻️
     // TOP -> BOTTOM REACTION on MVU STATE CHANCGED GRANULAR = invalidPinIds
     LaunchedEffect(stateOfModel.pinRemoveInquiries) {
 
         if (stateOfModel.pinRemoveInquiries.isNotEmpty()) {
             delay(5000) //  TODO DEBUG, visualising, remove later
 
+            // #0 prep for bulk - snapshot ITS IMPORTANT to catch the state HERE
             val pinRemoveInquiriesSnapshot = stateOfModel.pinRemoveInquiries
 
-            // #0 prep for bulk - snapshot ITS IMPORTANT to catch the state HERE
+            //#1 remove from physical FIRST! WHY? bc physical is most unreliable in
+            //our case! ROOM is local sqlite3 file, super relibale
+            //wait for pins that werent removed - potential RACE CONDITION SAVE
+            val invalidIds = pinRemoveInquiriesSnapshot // fetch IDS only from this set of objects, stupid really!
+                .map { it.pinLogicalId }
+                .toSet()
+            val couldNotRemoveIds = osmdroidManager.doGarbageCollect(invalidIds)
+            val couldNotRemoveObj = pinRemoveInquiriesSnapshot
+                .filter { it.pinLogicalId in couldNotRemoveIds } // those objects, that were NOT REMOVED as it seems!
+                .toSet()
+
+            //OPTIONAL!
+            //#2 side effect run based on pinRemoveInquiry flag REPOSITORY
             val idsReachedDB = pinRemoveInquiriesSnapshot
                 .filter { it.reachedDB }
                 .map { it.pinLogicalId }
                 .toSet()
-
-            // #1 side effect run based on pinRemoveInquiry flag REPOSITORY
-
-
-            //#2 remove from physical!
-            //wait for pins that werent removed (erros? who cares)
+            if (idsReachedDB.isNotEmpty()) {
+                viewModel.repoPin.deleteBulkByLogicalIds(idsReachedDB) // STINGER bc room is reliable
+            }
 
             //#3 calculate delta - WHAT WAS ACTUALLY REMOVED!
+            val wereReallyRemovedIds = invalidIds - couldNotRemoveIds
 
             //#4 substract MVU pins with what was REALLY REMOVED FROM ROOM + PHYSICAL
+            viewModel.subtractAllPins(wereReallyRemovedIds)
 
             //#5 replace all pins in pinRemoveInquiries on what WASNT REMOVED (if empty - okay)
-
-//            val couldNotRemove = osmdroidManager.doGarbageCollect(pinRemoveInquiries)
-//            val wereReallyRemovedDelta = pinRemoveInquiries - couldNotRemove
-//            viewModel.replaceInvalidPinIds(couldNotRemove)
+            viewModel.replaceInvalidPinIds(couldNotRemoveObj)
         }
         Toast.makeText(ctx, "GC", Toast.LENGTH_SHORT).show()
     }
 
 
-
+    // ♻️♻️♻️ TIMESTAMP INVALIDATOR ♻️♻️♻️
     LaunchedEffect(Unit) {
         while(true) {
-            delay(60_000) // Every minute
+            delay(10_000) // Every minute
             val nowTimestamp = System.currentTimeMillis()
 
-            val expiredIds = stateOfModel.pins
+            // make Set of inquiries from pin.pinLogicalId of those pins that are expired!
+            val expiredInquiries = stateOfModel.pins
                 .filter { pin ->
-                    pin.expirationTimestamp != 0L && // SKIP ETERNAL PINS 0L (long)
+                    pin.expirationTimestamp != 0L &&
                             pin.expirationTimestamp <= nowTimestamp
                 }
-                .map { it.pinLogicalId }
+                .map {
+                    PinRemoveInquiry(
+                        pinLogicalId = it.pinLogicalId,
+                        reachedDB = true
+                    )
+                }
                 .toSet()
 
-            if (expiredIds.isNotEmpty()) {
-//                viewModel.updateInvalidPinIds(expiredIds, Null) // Reuse existing GC!
+            if (expiredInquiries.isNotEmpty()) {
+                // Get current inquiries, add new ones, replace all
+                val currentInquiries = stateOfModel.pinRemoveInquiries
+                val updatedInquiries = currentInquiries + expiredInquiries
+                viewModel.replaceInvalidPinIds(updatedInquiries)
             }
+            Toast.makeText(ctx, "INVALIDATOR $nowTimestamp", Toast.LENGTH_SHORT).show()
         }
     }
-
-
-
 
     // 🎣🎣🎣 EFFECTS BLOCK 🎣🎣🎣
 

@@ -126,14 +126,15 @@ fun PinCreationDialog(
                     }
                     4 -> {
                         var uiHoursTTL = pinUnderConstruction.hoursTTL
-                            Text("TTL: $uiHoursTTL hours")
+//                            Text("TTL: $uiHoursTTL hours")
+                        Text("TTL: $uiHoursTTL minutes! testing") //TODO replace on hours!
                             Slider(
                                 value = uiHoursTTL.toFloat(),
 //                                onValueChange = { ttlHours = it.toInt() },
                                 onValueChange = { sliderValue ->
                                     pinUnderConstruction = pinUnderConstruction.copy(hoursTTL = sliderValue.toInt())
                                 },
-                                valueRange = 1f..255f,
+                                valueRange = 0f..255f,
                                 steps = 253
                             )
                     }
