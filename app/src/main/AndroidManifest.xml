@@ -30,4 +30,9 @@
         </activity>
     </application>
 
+    <!-- ANDROID 11+ for AIDL -->
+    <queries>
+        <package android:name="com.geeksville.mesh" />
+    </queries>
+
 </manifest>

@@ -123,6 +123,7 @@ data class StateMapModel(
     ),
     val pins: List<PinLogical> = emptyList(), // HOT PINS!
     val pinRemoveInquiries: Set<PinRemoveInquiry> = emptySet(), // INVALID PINS IDS FOR DELAYED GC!
+    val incomingMessages: List<String> = emptyList() // TODO TEMP DEBUG REMOVE incoming messages in the state
 )
 @HiltViewModel
 class StateMapViewModel @Inject constructor(
@@ -140,6 +141,22 @@ class StateMapViewModel @Inject constructor(
     val mapStateR: StateFlow<StateMapModel> = _mapStateRW.asStateFlow() // readonly!
     private var jobViewPortStateHotUpdate: Job? = null
     private var jobViewPortStateColdUpdate: Job? = null
+
+
+    // TODO oh my god block, wtf block
+    init {
+        viewModelScope.launch {
+            repoPin.portalToMesh._incomingMessagesFlowRW.collect { bytes ->
+                val message = String(bytes)
+                _mapStateRW.update { current ->
+                    current.copy(
+                        incomingMessages = current.incomingMessages + message
+                    )
+                }
+            }
+        }
+    }
+
 
     // ➡️➡️➡️ INTERACTIVE
     suspend fun saveViewPortToColdStorage() {
@@ -339,7 +356,9 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             //#5 replace all pins in pinRemoveInquiries on what WASNT REMOVED (if empty - okay)
             viewModel.replaceInvalidPinIds(couldNotRemoveObj)
         }
-        Toast.makeText(ctx, "GC", Toast.LENGTH_SHORT).show()
+//        Toast.makeText(ctx, "GC", Toast.LENGTH_SHORT).show()
+        viewModel.repoPin.portalToMesh.send("HUY".toByteArray())
+        Toast.makeText(ctx, "📡 SENT HUY", Toast.LENGTH_SHORT).show()
     }
 
 
@@ -401,6 +420,12 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             Text("${stateOfModel.pinRemoveInquiries}", fontSize = 15.sp)
             Text("${stateOfModel.pins}", fontSize = 10.sp)
 //            Text("Center: ${viewModel.uiState.mapCenter.latitude}, ${viewModel.uiState.mapCenter.longitude}")
+            Column {
+                Text("Messages: ${stateOfModel.incomingMessages.size}")
+                stateOfModel.incomingMessages.takeLast(3).forEach { msg ->
+                    Text("📨 $msg", fontSize = 12.sp)
+                }
+            }
 
         }
     } // Box end

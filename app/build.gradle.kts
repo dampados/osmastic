@@ -34,11 +34,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlin {
         compilerOptions {
@@ -99,4 +101,7 @@ dependencies {
 
     // Protobuf definitions (PortNum, Telemetry, etc.)
     implementation("com.github.meshtastic.Meshtastic-Android:meshtastic-android-proto:$meshtasticVersion")
+
+    // android 10 desugaring or back porting AUTOMATIC
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 }

@@ -6,8 +6,11 @@ import com.example.osmastic.PinLogical
 import com.example.osmastic.PinUI
 import com.example.osmastic.db.AppDatabase
 import com.example.osmastic.db.Pin
+import com.example.osmastic.ether.MeshtasticPortal
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 
 class RepoPin(
@@ -15,12 +18,29 @@ class RepoPin(
 //    private val dao: PinDao,
 //    private val radio: MeshtasticRadio
 ) {
-        private val database by lazy { AppDatabase.getDatabase(fuckingContext) }
-        private val dao = database.pinDao()
-        private sealed class ValidationResult {
-            object Valid : ValidationResult()
-            data class Invalid(val errors: List<String>) : ValidationResult()
+    private val database by lazy { AppDatabase.getDatabase(fuckingContext) }
+    private val dao = database.pinDao()
+
+    val portalToMesh = MeshtasticPortal(fuckingContext)
+
+    private sealed class ValidationResult {
+        object Valid : ValidationResult()
+        data class Invalid(val errors: List<String>) : ValidationResult()
+    }
+
+
+    init {
+        portalToMesh.connect()
+
+        CoroutineScope(Dispatchers.Main).launch {
+            delay(2000)
+            val info = portalToMesh.serviceConnection.getMyNodeInfo()
+            Toast.makeText(fuckingContext, "📡 $info", Toast.LENGTH_LONG).show()
+            println("📡 $info")
         }
+    }
+
+
 
 // 🛟🛟🛟 PRIVATE HELPERS 🛟🛟🛟
     private fun validatePin(incomingPinLogical: PinLogical): ValidationResult {
