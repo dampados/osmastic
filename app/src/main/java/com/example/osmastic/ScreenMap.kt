@@ -166,12 +166,13 @@ class StateMapViewModel @Inject constructor(
     private fun pushOnePinLogicalToModel(incomingPinUI: PinUI): PinLogical {
         val HOUR = 3600
         val MINUTE = 60 // todo UGLY DEBUG remove later
+        val SECOND = 1  // todo UGLY DEBUG remove later
 
         val editorHashInt = SecureRandom().nextInt(1 shl 24)
         val calculatedExpTimestamp = if (incomingPinUI.hoursTTL == 0) {
             0L  // eternal
         } else {
-            System.currentTimeMillis() + (incomingPinUI.hoursTTL * MINUTE * 1000)
+            System.currentTimeMillis() + (incomingPinUI.hoursTTL * SECOND * 1000)
         }
 
         val newPinLogical = PinLogical(
@@ -309,7 +310,9 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 viewModel.constructAndPushPinFull(newPinUI)  // ◀️◀️◀️ and return back... yeah
             },
             onPinClick = { context ->
-                Toast.makeText(context, "PIN CLICKED:", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
+//                Toast.makeText(context, "PIN CLICKED:", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
+                viewModel.repoPin.portalToMesh.sendToPortal("HUY".toByteArray())
+                Toast.makeText(ctx, "📡 SENT HUY", Toast.LENGTH_SHORT).show()
                 // <HERE PIN CLICK CALLBACK IMPLEMENTATION>  // ◀️◀️◀️ and return back... yeah
             }
         )
@@ -356,9 +359,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             //#5 replace all pins in pinRemoveInquiries on what WASNT REMOVED (if empty - okay)
             viewModel.replaceInvalidPinIds(couldNotRemoveObj)
         }
-//        Toast.makeText(ctx, "GC", Toast.LENGTH_SHORT).show()
-        viewModel.repoPin.portalToMesh.send("HUY".toByteArray())
-        Toast.makeText(ctx, "📡 SENT HUY", Toast.LENGTH_SHORT).show()
+        Toast.makeText(ctx, "GC", Toast.LENGTH_SHORT).show()
     }
 
 
