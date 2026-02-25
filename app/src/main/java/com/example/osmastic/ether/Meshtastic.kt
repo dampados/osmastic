@@ -165,19 +165,19 @@ class ExtendedBroadcastReceiver(
         Toast.makeText(context,"received smth", Toast.LENGTH_SHORT) // TODO toast receieved
         if (intent?.action != "com.geeksville.mesh.RECEIVED.${MeshtasticPortal.OUR_PORT}")
             return
-            println("🔵 Received broadcast: ${intent?.action}")
+        println("🔵 Received broadcast: ${intent?.action}")
 
-            // List all extras
-            intent?.extras?.keySet()?.forEach { key ->
-                println("🔵 Extra: $key = ${intent.extras?.get(key)}")
-            }
+        // List all extras
+        intent?.extras?.keySet()?.forEach { key ->
+            println("🔵 Extra: $key = ${intent.extras?.get(key)}")
+        }
 
-            val packet = intent.getParcelableExtra<DataPacket>("packet")
-            println("🔵 Packet: $packet")
-            println("🔵 Packet dataType: ${packet?.dataType}")
-            println("🔵 Packet bytes: ${packet?.bytes}")
+        val packet = intent.getParcelableExtra<DataPacket>("packet")
+        println("🔵 Packet: $packet")
+        println("🔵 Packet dataType: ${packet?.dataType}")
+        println("🔵 Packet bytes: ${packet?.bytes}")
 
-            packet?.bytes?.let { onMessageReceived(it.toByteArray()) }
+        packet?.bytes?.let { onMessageReceived(it.toByteArray()) }
     }
 }
 // ↙️↙️↙️ BroadcastReceiver for incoming messages ↙️↙️↙️ <- <- <-
