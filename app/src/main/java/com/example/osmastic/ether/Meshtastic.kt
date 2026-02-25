@@ -8,14 +8,12 @@ import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import okio.ByteString.Companion.toByteString
 import org.meshtastic.core.model.NodeInfo
 import org.meshtastic.core.service.IMeshService
 import org.meshtastic.core.model.DataPacket
-import org.meshtastic.core.model.MessageStatus
 import org.meshtastic.proto.MeshPacket
 import org.meshtastic.proto.PortNum
 import java.util.concurrent.atomic.AtomicInteger
@@ -136,17 +134,17 @@ class MeshtasticPortal(private val context: Context) {
         // TODO: Unregister receiver
         // TODO: Unbind service
     }
-    private val nextPacketId = AtomicInteger(1)
-    suspend fun sendToPortal(data: ByteArray) {
+
+    suspend fun sendToPortal(data: ByteArray) { // TODO: sendToPortal func obsolete?
+
+        // #1 check if theres anyone to ASK to send the message
         val meshService = osmasticToMeshtasticLinkInterface ?: run {
-            println("❌ No meshService connected")
+            Toast.makeText(context, "can't send - meshService is not CONNECTED ):", Toast.LENGTH_SHORT) // TODO: TOAST sendToPortal check before sending
             return
         }
-
-        // Send it - but you need to call the wrapper's send method, not directly on interface
         serviceConnectionWrapper.sendToTheEther(data)
-        println("✅ Sent data ${data.size} bytes")
     }
+
     // Get connected node NAME
     suspend fun getNodeName(): String {
         //TODO: get freaking name
@@ -171,39 +169,10 @@ class ExtendedBroadcastReceiver(
 ) : BroadcastReceiver() {
 
     override fun onReceive(context: Context?, intent: Intent?) {
-//        Toast.makeText(context, "received smth: ${intent?.action}", Toast.LENGTH_SHORT).show()
-//
-//        // Get the packet from extras
-//        val packet = if (android.os.Build.VERSION.SDK_INT >= 33) {
-//            intent?.getParcelableExtra("packet", DataPacket::class.java)
-//        } else {
-//            @Suppress("DEPRECATION")
-//            intent?.getParcelableExtra<DataPacket>("packet")
-//        }
-//
-//
-//        intent?.extras?.keySet()?.forEach { key ->
-//            val value = intent.extras?.get(key)
-//            println("🔑 Extra: $key = $value (${value?.javaClass?.simpleName})")
-//            Toast.makeText(context, "$key: $value", Toast.LENGTH_SHORT).show()
-//        }
-//
-//
-//        // Show packet info in toast
-//        if (packet != null) {
-//            val bytes = packet.bytes?.toByteArray()
-//            val message = String(bytes ?: byteArrayOf())
-//            Toast.makeText(context, "📨 $message", Toast.LENGTH_LONG).show()
-//
-//            // Also emit to your flow
-//            bytes?.let { onMessageReceived(it) }
-//        } else {
-//            Toast.makeText(context, "❌ No packet in intent", Toast.LENGTH_SHORT).show()
-//        }
 
-        Toast.makeText(context, "received smth: ${intent?.action}", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "received smth: ${intent?.action}", Toast.LENGTH_SHORT).show() // todo: TOAST catching smth at all
 
-        // Get the packet using the CORRECT key
+        //#1 extract the PACKET from extras."com.geeksville.mesh.Payload" thing
         val packet = if (android.os.Build.VERSION.SDK_INT >= 33) {
             intent?.getParcelableExtra("com.geeksville.mesh.Payload", DataPacket::class.java)
         } else {
@@ -211,15 +180,17 @@ class ExtendedBroadcastReceiver(
             intent?.getParcelableExtra<DataPacket>("com.geeksville.mesh.Payload")
         }
 
+        //#2 shoot callback if extracted EXISTS
         if (packet != null) {
             val bytes = packet.bytes?.toByteArray()
             val message = String(bytes ?: byteArrayOf())
-            Toast.makeText(context, "📨 $message", Toast.LENGTH_LONG).show()
+
+            Toast.makeText(context, "📨 $message", Toast.LENGTH_LONG).show() // todo: TOAST parsed NOT NULL message from the outside
+
             bytes?.let { onMessageReceived(it) }
         } else {
-            Toast.makeText(context, "❌ No Payload in intent", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "EMPTY MESSAGE", Toast.LENGTH_SHORT).show() // todo: TOAST parsed NOT NULL message from the outside FAILURE
         }
-
     }
 }
 // ↙️↙️↙️ BroadcastReceiver for incoming messages ↙️↙️↙️ <- <- <-
@@ -231,85 +202,60 @@ class ExtendedBroadcastReceiver(
 
 
 
-// ↗️↗️↗️ ServiceConnection CLASS to get meshService ↗️↗️↗️ -> -> ->
+// ↗️↗️↗️ ServiceConnection wrapper class to get meshService ↗️↗️↗️ -> -> ->
 class ServiceConnectionWrapper(
     private val context: Context,
     private val onServiceReady: (IMeshService) -> Unit
 ) {
+    // #1 interface AIDL of the meshtastic app
     private var meshService: IMeshService? = null
-    private val nextPacketId = AtomicInteger(1)
 
-    // This is the ACTUAL ServiceConnection
+    // #2 This is the ACTUAL ServiceConnection!!!!! damn needed
     private val serviceConnectionObject = object : ServiceConnection { //TODO: on service connected TOASTS
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            println("✅ onServiceConnected FIRED!")  // ← Add this
-            Toast.makeText(context, "✅ onServiceConnected FIRED!", Toast.LENGTH_SHORT)
+            Toast.makeText(context, "✅ onServiceConnected callback!", Toast.LENGTH_SHORT).show() // todo: toast service check
+
             meshService = IMeshService.Stub.asInterface(service)
-            println("✅ meshService is ${if (meshService != null) "not null" else "null"}")  // ← And this
             meshService?.let { onServiceReady(it) }
-            Toast.makeText(context, "✅ meshService is ${if (meshService != null) "not null" else "null"}", Toast.LENGTH_SHORT)
+
+            Toast.makeText(context, "meshService is ${if (meshService != null) "✅" else "❌"}", Toast.LENGTH_SHORT).show() //todo: meshService null check
         }
         override fun onServiceDisconnected(name: ComponentName?) {
             meshService = null
+            Toast.makeText(context, "❌ onServiceDisconnected callback!", Toast.LENGTH_SHORT).show()
         }
     }
 
     fun bind(incomingIntent: Intent) {
-//        val intent = Intent().apply {
-//            setClassName(MeshtasticPortal.MESH_APP_PACKAGE, MeshtasticPortal.MESH_SERVICE_CLASS)
-//        }
         context.bindService(incomingIntent, serviceConnectionObject, Context.BIND_AUTO_CREATE)
     }
     fun unbind() {
         context.unbindService(serviceConnectionObject)
     }
-    suspend fun getMyNodeInfo(): String {
-        return try {
-            meshService?.myNodeInfo.toString()
-        } catch (e: Exception) {
-            "Error: ${e.message}"
-        }
-    }
-    fun sendToTheEther(data: ByteArray) {
+    fun sendToTheEther(outgoingMessage: ByteArray) {
         if (meshService == null) {
-            println("❌ Cannot send - meshService is null")
+            println("❌❌❌❌❌ Cannot send - meshService is dead")
             return
         }
 
         try {
-//            val packet = DataPacket(
-//                to = DataPacket.ID_BROADCAST,
-//                bytes = data.toByteString(),
-//                dataType = MeshtasticPortal.OUR_PORT,
-//                id = nextPacketId.getAndIncrement(),
-//                wantAck = true,
-//                channel = 0,  // ← CRITICAL: Send on primary channel
-//            )
-
-            val testoChannelIndex = 0 /* set to channel index shown in official app */
-
-            val packetId = meshService!!.packetId
+            val packetId = meshService!!.packetId // fetch next id FROM the BB
 
             val packet = DataPacket(
                 to = DataPacket.ID_BROADCAST,
-                bytes = "AIDL-test".encodeToByteArray().toByteString(),
+                bytes = outgoingMessage.toByteString(),
                 dataType = PortNum.TEXT_MESSAGE_APP.value, // == 1
                 from = DataPacket.ID_LOCAL,
-//                time = System.currentTimeMillis(),
-//                id = meshService!!.packetId, //nextPacketId.getAndIncrement(),
-                id = packetId,
-                channel = testoChannelIndex,
+                id = packetId, // IMPORTANT, built in id system
+                channel = 0, // TODO primary channel for now, switch later (portal send fun argument?)
                 wantAck = true,
                 transportMechanism = MeshPacket.TransportMechanism.TRANSPORT_LORA.value, // == 1
-                hopLimit = 3,
-
+//                hopLimit = 3,
             )
-            meshService?.send(packet)
-            println("✅ send() called on meshService")
+            meshService?.send(packet) // 🚀🚀🚀 FIRE HERE
         } catch (e: Exception) {
-            println("❌ AIDL send failed: ${e.message}")
+            println("❌❌❌❌❌ sendToTheEther failed: ${e.message}")
         }
     }
 }
-
 // ↗️↗️↗️ ServiceConnection to get meshService ↗️↗️↗️ -> -> ->

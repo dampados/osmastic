@@ -41,9 +41,9 @@ class RepoPin(
 
         CoroutineScope(Dispatchers.Main).launch {
             delay(2000)
-            val info = portalToMesh.serviceConnectionWrapper.getMyNodeInfo()
-            Toast.makeText(fuckingContext, "📡 $info", Toast.LENGTH_LONG).show()
-            println("📡 $info")
+//            val info = portalToMesh.serviceConnectionWrapper.getMyNodeInfo()
+//            Toast.makeText(fuckingContext, "📡 $info", Toast.LENGTH_LONG).show()
+//            println("📡 $info")
         }
     }
 
