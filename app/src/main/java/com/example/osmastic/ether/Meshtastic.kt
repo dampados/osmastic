@@ -106,15 +106,24 @@ class MeshtasticPortal(private val context: Context) {
 //        val filter = IntentFilter("com.geeksville.mesh.RECEIVED.${OUR_PORT}")
 //        context.registerReceiver(broadcastReceiver, filter, Context.RECEIVER_EXPORTED)
 
-        val f1 = IntentFilter("com.geeksville.mesh.RECEIVED_DATA")
-//        val f2 = IntentFilter("com.geeksville.mesh.RECEIVED.${MeshtasticPortal.OUR_PORT}")
-        ContextCompat.registerReceiver(
-            context,
-            broadcastReceiver,
-            f1,
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-//        context.registerReceiver(broadcastReceiver, f2)
+////        val f1 = IntentFilter("com.geeksville.mesh.RECEIVED_DATA")
+//        val f1 = IntentFilter("com.geeksville.mesh.RECEIVED.1") // Match what you send
+////        val f2 = IntentFilter("com.geeksville.mesh.RECEIVED.${MeshtasticPortal.OUR_PORT}")
+//        ContextCompat.registerReceiver(
+//            context,
+//            broadcastReceiver,
+//            f1,
+//            ContextCompat.RECEIVER_NOT_EXPORTED
+//        )
+////        context.registerReceiver(broadcastReceiver, f2)
+
+        val filter = IntentFilter().apply {
+            addAction("com.geeksville.mesh.RECEIVED.1")
+            addAction("com.geeksville.mesh.RECEIVED.${MeshtasticPortal.OUR_PORT}")
+            addAction("com.geeksville.mesh.RECEIVED_DATA") // optional catch-all
+        }
+
+        context.registerReceiver(broadcastReceiver, filter, Context.RECEIVER_EXPORTED)
 
 
         println("✅ Connect complete - bound to service and registered receiver")
@@ -162,22 +171,55 @@ class ExtendedBroadcastReceiver(
 ) : BroadcastReceiver() {
 
     override fun onReceive(context: Context?, intent: Intent?) {
-        Toast.makeText(context,"received smth", Toast.LENGTH_SHORT) // TODO toast receieved
-        if (intent?.action != "com.geeksville.mesh.RECEIVED.${MeshtasticPortal.OUR_PORT}")
-            return
-        println("🔵 Received broadcast: ${intent?.action}")
+//        Toast.makeText(context, "received smth: ${intent?.action}", Toast.LENGTH_SHORT).show()
+//
+//        // Get the packet from extras
+//        val packet = if (android.os.Build.VERSION.SDK_INT >= 33) {
+//            intent?.getParcelableExtra("packet", DataPacket::class.java)
+//        } else {
+//            @Suppress("DEPRECATION")
+//            intent?.getParcelableExtra<DataPacket>("packet")
+//        }
+//
+//
+//        intent?.extras?.keySet()?.forEach { key ->
+//            val value = intent.extras?.get(key)
+//            println("🔑 Extra: $key = $value (${value?.javaClass?.simpleName})")
+//            Toast.makeText(context, "$key: $value", Toast.LENGTH_SHORT).show()
+//        }
+//
+//
+//        // Show packet info in toast
+//        if (packet != null) {
+//            val bytes = packet.bytes?.toByteArray()
+//            val message = String(bytes ?: byteArrayOf())
+//            Toast.makeText(context, "📨 $message", Toast.LENGTH_LONG).show()
+//
+//            // Also emit to your flow
+//            bytes?.let { onMessageReceived(it) }
+//        } else {
+//            Toast.makeText(context, "❌ No packet in intent", Toast.LENGTH_SHORT).show()
+//        }
 
-        // List all extras
-        intent?.extras?.keySet()?.forEach { key ->
-            println("🔵 Extra: $key = ${intent.extras?.get(key)}")
+        Toast.makeText(context, "received smth: ${intent?.action}", Toast.LENGTH_SHORT).show()
+
+        // Get the packet using the CORRECT key
+        val packet = if (android.os.Build.VERSION.SDK_INT >= 33) {
+            intent?.getParcelableExtra("com.geeksville.mesh.Payload", DataPacket::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent?.getParcelableExtra<DataPacket>("com.geeksville.mesh.Payload")
         }
 
-        val packet = intent.getParcelableExtra<DataPacket>("packet")
-        println("🔵 Packet: $packet")
-        println("🔵 Packet dataType: ${packet?.dataType}")
-        println("🔵 Packet bytes: ${packet?.bytes}")
+        if (packet != null) {
+            val bytes = packet.bytes?.toByteArray()
+            val message = String(bytes ?: byteArrayOf())
+            Toast.makeText(context, "📨 $message", Toast.LENGTH_LONG).show()
+            bytes?.let { onMessageReceived(it) }
+        } else {
+            Toast.makeText(context, "❌ No Payload in intent", Toast.LENGTH_SHORT).show()
+        }
 
-        packet?.bytes?.let { onMessageReceived(it.toByteArray()) }
     }
 }
 // ↙️↙️↙️ BroadcastReceiver for incoming messages ↙️↙️↙️ <- <- <-
@@ -246,19 +288,22 @@ class ServiceConnectionWrapper(
 
             val testoChannelIndex = 0 /* set to channel index shown in official app */
 
+            val packetId = meshService!!.packetId
+
             val packet = DataPacket(
                 to = DataPacket.ID_BROADCAST,
                 bytes = "AIDL-test".encodeToByteArray().toByteString(),
                 dataType = PortNum.TEXT_MESSAGE_APP.value, // == 1
                 from = DataPacket.ID_LOCAL,
 //                time = System.currentTimeMillis(),
-                id = nextPacketId.getAndIncrement(),
+//                id = meshService!!.packetId, //nextPacketId.getAndIncrement(),
+                id = packetId,
                 channel = testoChannelIndex,
                 wantAck = true,
-                transportMechanism = MeshPacket.TransportMechanism.TRANSPORT_LORA.value // == 1
-            )
-            meshService?.send(packet)
+                transportMechanism = MeshPacket.TransportMechanism.TRANSPORT_LORA.value, // == 1
+                hopLimit = 3,
 
+            )
             meshService?.send(packet)
             println("✅ send() called on meshService")
         } catch (e: Exception) {
