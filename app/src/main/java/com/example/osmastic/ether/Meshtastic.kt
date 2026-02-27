@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.widget.Toast
+import com.example.osmastic.repo.RepoPin
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import okio.ByteString.Companion.toByteString
@@ -19,14 +20,17 @@ import org.meshtastic.proto.PortNum
 import java.util.concurrent.atomic.AtomicInteger
 
 
-class MeshtasticPortal(private val context: Context) {
+class MeshtasticPortal(
+    private val context: Context,
+    private val repo: RepoPin,
+) {
 
     // 📝📝📝 PROPS 📝📝📝
     // 0. class props, config
     companion object {
         const val OUR_PORT = 256
         const val MESH_APP_PACKAGE = "com.geeksville.mesh"
-        const val MESH_SERVICE_CLASS = "$MESH_APP_PACKAGE.service.MeshService"
+//        const val MESH_SERVICE_CLASS = "$MESH_APP_PACKAGE.service.MeshService"
     }
 
     // 1. AIDL interface for sending
@@ -39,10 +43,11 @@ class MeshtasticPortal(private val context: Context) {
 
 
     // 🎤️🎤️🎤️ OBJECTS DOERS 🎤️🎤️🎤️
-    internal val broadcastReceiver = ExtendedBroadcastReceiver { bytes ->
-        _incomingMessagesFlowR.tryEmit(bytes)
+    internal val broadcastReceiver = ExtendedBroadcastReceiver { incomingMessage ->
+        //🚀🚀🚀 CALLBACK DECLARATION ON RECEIVE 🚀🚀🚀
+//        _incomingMessagesFlowR.tryEmit(bytes) // ebala kayato, logical faulire
+        repo.handleIncomingMessage(incomingMessage)
     }
-
     internal val serviceConnectionWrapper = ServiceConnectionWrapper(context) { meshService ->
         osmasticToMeshtasticLinkInterface = meshService // BINDING TO THE INTERFACE TO GET THE MENU
     }
@@ -68,9 +73,9 @@ class MeshtasticPortal(private val context: Context) {
 
 
         val filter = IntentFilter().apply {
-            addAction("com.geeksville.mesh.RECEIVED.1")
+            addAction("com.geeksville.mesh.RECEIVED.1") // CATCH MESSAGES! 1
             addAction("com.geeksville.mesh.RECEIVED.${OUR_PORT}")
-            addAction("com.geeksville.mesh.RECEIVED_DATA") // optional catch-all
+            addAction("com.geeksville.mesh.RECEIVED_DATA") // optional catch-all?
         }
 
         context.registerReceiver(broadcastReceiver, filter, Context.RECEIVER_EXPORTED)
@@ -143,10 +148,13 @@ class ExtendedBroadcastReceiver(
                 // Попробуем распарсить как наш PinMessage
                 try {
                     val pin = PinMessage.parseFrom(bytes)
-                    Toast.makeText(context, "✅ Pin ${pin.pinLogicalId}", Toast.LENGTH_SHORT).show()
-                    onMessageReceived(bytes)  // передаём байты дальше
+
+                    Toast.makeText(context, "📩📩📩 Pin ${pin.pinLogicalId}, ${bytes.size}", Toast.LENGTH_SHORT).show()
+
+                    onMessageReceived(bytes) // CALLBACK
+
                 } catch (e: Exception) {
-                    Toast.makeText(context, "❌ Не наш protobuf", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Message in channel chat! ${bytes.toByteString()}", Toast.LENGTH_SHORT).show()
                 }
             }
 
@@ -218,6 +226,9 @@ class ServiceConnectionWrapper(
                 transportMechanism = MeshPacket.TransportMechanism.TRANSPORT_LORA.value, // == 1
             )
             meshService?.send(packet) // 🚀🚀🚀 FIRE HERE
+
+            Toast.makeText(context, "⬆️⬆️⬆️ SENT SIZE ${outgoingMessage.size}", Toast.LENGTH_SHORT).show() //TODO: size of the outgoing message
+
         } catch (e: Exception) {
             println("❌❌❌❌❌ sendToTheEther failed: ${e.message}")
         }

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.currentComposer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -257,6 +258,14 @@ class StateMapViewModel @Inject constructor(
         }
     }
 
+    fun pushMessage(string: String) {
+        _mapStateRW.update { current ->
+            current.copy(
+                incomingMessages = current.incomingMessages + string
+            )
+        }
+    }
+
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
@@ -390,6 +399,16 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             }
 //            Toast.makeText(ctx, "INVALIDATOR $nowTimestamp", Toast.LENGTH_SHORT).show() //TODO: invalidator TOAST
         }
+    }
+
+    // TODO: эффектик для реакци на пополнение в пришедших пинах
+    LaunchedEffect(Unit) {  // ← key = Unit — запускается один раз
+        viewModel.repoPin.incomingPinsListStateR.collect { pinsList ->
+            // Будет вызываться при каждом изменении списка
+            Toast.makeText(ctx, "Новых пинов: ${pinsList.size}", Toast.LENGTH_SHORT).show()
+        }
+
+        viewModel.pushMessage("ass")
     }
 
     // 🎣🎣🎣 EFFECTS BLOCK 🎣🎣🎣

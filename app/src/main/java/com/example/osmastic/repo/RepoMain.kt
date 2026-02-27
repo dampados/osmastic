@@ -4,6 +4,7 @@ import android.content.Context
 import android.widget.Toast
 import com.example.osmastic.PinLogical
 import com.example.osmastic.PinUI
+import com.example.osmastic.StateMapModel
 import com.example.osmastic.db.AppDatabase
 import com.example.osmastic.db.Pin
 import com.example.osmastic.ether.MeshtasticPortal
@@ -17,16 +18,24 @@ import org.osmdroid.util.GeoPoint
 import com.example.osmastic.ether.PinMessage
 import com.example.osmastic.ether.pinMessage
 import com.google.protobuf.ByteString
+import com.google.protobuf.copy
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import java.security.SecureRandom
 
 class RepoPin(
     val fuckingContext: Context,
 //    private val dao: PinDao,
 //    private val radio: MeshtasticRadio
 ) {
+    private val _incomingPinsListStateRW = MutableStateFlow<List<PinLogical>>(emptyList()) // RW, but private!
+    val incomingPinsListStateR: StateFlow<List<PinLogical>> = _incomingPinsListStateRW //  readonly!
     private val database by lazy { AppDatabase.getDatabase(fuckingContext) }
     private val dao = database.pinDao()
 
-    val portalToMesh = MeshtasticPortal(fuckingContext)
+    val portalToMesh = MeshtasticPortal(fuckingContext, this)
 
     private sealed class ValidationResult {
         object Valid : ValidationResult()
@@ -127,6 +136,65 @@ class RepoPin(
         return pinMessBuilder.build()
     }
 
+
+
+    private fun deserializePinLogical(incomingMessageBytes: ByteArray): PinLogical {
+
+        //#1 introduce football teams:
+        val pinProtobuf = PinMessage.parseFrom(incomingMessageBytes)
+        val defaultPin = PinLogical(
+            pinLogicalId = 1,
+            editorHash = byteArrayOf(),
+            pinPhysProps = PinUI(
+                geoPoint = GeoPoint(
+                    0.0,
+                    0.0
+                ),
+            )
+        )
+
+        //#2 poshla ebka
+        val _pinLogicalId = pinProtobuf.pinLogicalId
+        val _editorHash = pinProtobuf.editorHash
+        val _lamportEpoch = if (pinProtobuf.hasLamportEpoch()) pinProtobuf.lamportEpoch else defaultPin.lamportEpoch
+        val _hoursTTL = if (pinProtobuf.hasHoursTTL()) pinProtobuf.hoursTTL else defaultPin.pinPhysProps.hoursTTL
+
+        val HOUR = 3600
+        val MINUTE = 60 // todo UGLY DEBUG remove later
+        val SECOND = 1  // todo UGLY DEBUG remove later
+        val _expirationTimestamp = if (_hoursTTL == 0) 0L else System.currentTimeMillis() + (_hoursTTL * SECOND * 1000)
+
+//        val _lat = if (pinProtobuf.hasLat()) pinProtobuf.lat else dao.getById(_pinLogicalId)?.latitude  // UGLY?
+//        val _lon = if (pinProtobuf.hasLon()) pinProtobuf.lon else dao.getById(_pinLogicalId)?.longitude // UGLY?
+        val _lat = if (pinProtobuf.hasLat()) pinProtobuf.lat else 0.0
+        val _lon = if (pinProtobuf.hasLon()) pinProtobuf.lon else 0.0 //TODO HOUSTON WE GOT no good way to check if we already have coordinates.
+
+        val _rotationByte = if (pinProtobuf.hasRotationByte()) pinProtobuf.rotationByte else defaultPin.pinPhysProps.rotationByte
+        val _iconUnicode = if (pinProtobuf.hasIconUnicode()) pinProtobuf.iconUnicode else defaultPin.pinPhysProps.iconUnicode
+        val _label = if (pinProtobuf.hasLabel()) pinProtobuf.label else defaultPin.pinPhysProps.label
+        val _isHiddenBeforeTTL = if (pinProtobuf.hasIsHiddenBeforeTtl()) pinProtobuf.isHiddenBeforeTtl else defaultPin.pinPhysProps.isHiddenBeforeTTL
+
+        //#3 construct and return
+        return PinLogical(
+            pinLogicalId = _pinLogicalId,
+            editorHash = _editorHash.toByteArray(),
+            lamportEpoch = _lamportEpoch,
+            expirationTimestamp = _expirationTimestamp,
+            pinPhysProps = PinUI(
+                geoPoint = GeoPoint(
+                    _lat.toDouble(),
+                    _lon.toDouble()
+                ),
+                rotationByte = _rotationByte,
+                iconUnicode = _iconUnicode,
+                label = _label,
+                isHiddenBeforeTTL = _isHiddenBeforeTTL,
+                hoursTTL = _hoursTTL
+            )
+        )
+
+    }
+
 // 🛟🛟🛟 PRIVATE HELPERS 🛟🛟🛟
 
 
@@ -170,6 +238,14 @@ class RepoPin(
     suspend fun deleteBulkByLogicalIds(pinLogicalIds: Set<Int>): Int {
         return dao.deleteBulkByLogicalIds(pinLogicalIds)
     }
+    fun handleIncomingMessage(incomingMessage: ByteArray) {
+
+        _incomingPinsListStateRW.update { currentList ->
+            currentList + deserializePinLogical(incomingMessage)
+        }
+
+    }
+
 
 // 🎊🎊🎊 INTERACTIVE PART 🎊🎊🎊
 
