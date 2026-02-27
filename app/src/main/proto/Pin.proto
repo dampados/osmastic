@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package com.example.osmastic.ether;
+
+option java_package = "com.example.osmastic.ether";
+option java_multiple_files = true;
+
+message PinMessage {
+      int32 pin_logical_id = 1;
+      bytes editor_hash = 2;
+  optional int32 lamport_epoch = 3;
+  optional float lat = 4;
+  optional float lon = 5;
+  optional int32 rotation_byte = 6;
+  optional string icon_unicode = 7;
+  optional string label = 8;
+  optional bool is_hidden_before_ttl = 9;
+  optional int32 hoursTTL = 10;
+}
+
+/*
+DELTA, universal.
+important fields are only:
+-logical id,
+-editor hash,
+-lamport epoch.
+
+other omitted fields will be:
+1) ignored, packet dropped, if creation of the pin NEEDS lat+lon
+2) fallback to default
+*/

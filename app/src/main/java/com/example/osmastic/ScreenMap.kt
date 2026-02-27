@@ -99,16 +99,16 @@ data class ViewPort(
 )
 data class PinUI(
     val geoPoint: GeoPoint,
+    val rotationByte: Int? = null,
     val iconUnicode: String = "📍",
     val label: String? = null,
-    val rotationByte: Int? = null,
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
     val hoursTTL: Int = 6, // SIX HOURS DEFAULT life time
 )
 data class PinLogical(
     val pinLogicalId: Int,
-    val lamportEpoch: Int = 1,
     val editorHash: ByteArray,
+    val lamportEpoch: Int = 1,
     val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
     val pinPhysProps: PinUI,
 )
@@ -301,18 +301,17 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 coldPins            // ◀️◀️◀️ and return back... yeah
             },
             onTapShortCallback = { context, geoPoint,  ->
-                Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
+//                Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
                 viewModel.constructAndPushPinQuick(geoPoint) // ◀️◀️◀️ and return back... yeah
             },
             onTapLongCallback = { context, geoPoint ->
-                Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
+//                Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
                 val newPinUI = showPinCreationModal(geoPoint)  // 🛑🛑🛑  --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type 🛑🛑🛑
                 viewModel.constructAndPushPinFull(newPinUI)  // ◀️◀️◀️ and return back... yeah
             },
             onPinClick = { context ->
-//                Toast.makeText(context, "PIN CLICKED:", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
-                viewModel.repoPin.portalToMesh.sendToPortal("HUY".toByteArray())
-                Toast.makeText(ctx, "📡 SENT HUY", Toast.LENGTH_SHORT).show()
+                viewModel.repoPin.portalToMesh.sendToPortal("TEST_MESSAGE_OVER_LORA".toByteArray())
+                Toast.makeText(ctx, "Emitted message", Toast.LENGTH_SHORT).show()
                 // <HERE PIN CLICK CALLBACK IMPLEMENTATION>  // ◀️◀️◀️ and return back... yeah
             }
         )
@@ -359,14 +358,14 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             //#5 replace all pins in pinRemoveInquiries on what WASNT REMOVED (if empty - okay)
             viewModel.replaceInvalidPinIds(couldNotRemoveObj)
         }
-        Toast.makeText(ctx, "GC", Toast.LENGTH_SHORT).show()
+//        Toast.makeText(ctx, "GC", Toast.LENGTH_SHORT).show() //TODO GC toast
     }
 
 
     // ♻️♻️♻️ TIMESTAMP INVALIDATOR ♻️♻️♻️
     LaunchedEffect(Unit) {
         while(true) {
-            delay(10_000) // Every minute
+            delay(10_000) // TODO: delay too short (10 sec), debug. increase to 5 minutes.
             val nowTimestamp = System.currentTimeMillis()
 
             // make Set of inquiries from pin.pinLogicalId of those pins that are expired!
@@ -389,7 +388,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 val updatedInquiries = currentInquiries + expiredInquiries
                 viewModel.replaceInvalidPinIds(updatedInquiries)
             }
-            Toast.makeText(ctx, "INVALIDATOR $nowTimestamp", Toast.LENGTH_SHORT).show()
+//            Toast.makeText(ctx, "INVALIDATOR $nowTimestamp", Toast.LENGTH_SHORT).show() //TODO: invalidator TOAST
         }
     }
 
@@ -400,7 +399,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             osmdroidManager.getMapView()
         },
         update = { /* nothing here - not using native MVVM updates */
-            Toast.makeText(ctx, "UPDATE CALLBACK", Toast.LENGTH_SHORT).show()
+//            Toast.makeText(ctx, "UPDATE CALLBACK", Toast.LENGTH_SHORT).show() // TODO: UPDATE ANDROID VIEW CALLBACK toast
         }
     )
 

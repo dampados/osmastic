@@ -8,6 +8,8 @@ espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.12.2"
 composeBom = "2026.01.00"
+protobuf = "0.9.6"
+protoc = "3.25.1"
 
 room = "2.8.4"
 ksp = "2.3.4"
@@ -40,6 +42,10 @@ androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-p
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 
+#protobuf support
+protobuf-kotlin-lite = { module = "com.google.protobuf:protobuf-kotlin-lite", version.ref = "protoc" }
+protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "protoc" }
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -51,4 +57,7 @@ ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 
 #HILT for DI bc viewModel() factory bc context for the ROOM
 hilt = { id = "com.google.dagger.hilt.android", version = "2.57.1" }
+
+#PROTOBUF SUPPORT
+protobuf = { id = "com.google.protobuf", version.ref = "protobuf" }
 

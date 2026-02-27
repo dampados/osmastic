@@ -24,7 +24,7 @@ class MeshtasticPortal(private val context: Context) {
     // 📝📝📝 PROPS 📝📝📝
     // 0. class props, config
     companion object {
-        const val OUR_PORT = 459
+        const val OUR_PORT = 256
         const val MESH_APP_PACKAGE = "com.geeksville.mesh"
         const val MESH_SERVICE_CLASS = "$MESH_APP_PACKAGE.service.MeshService"
     }
@@ -49,41 +49,7 @@ class MeshtasticPortal(private val context: Context) {
     // 🎤️🎤️🎤️ OBJECTS DOERS 🎤️🎤️🎤️
 
 
-
-
-
-
     // 🏮🏮🏮 PUBLIC API 🏮🏮🏮
-//    fun connect() { // WORKS WORKS WORKS
-////        // 1. Bind to service
-////        val intent = Intent().apply {
-////            setClassName(MESH_APP_PACKAGE, MESH_SERVICE_CLASS)
-////        }
-////        serviceConnectionWrapper.bind()
-////
-////        // 2. Register receiver
-////        val filter = IntentFilter("com.geeksville.mesh.RECEIVED_DATA")
-//////        val filter = IntentFilter("com.geeksville.mesh.RECEIVED.${OUR_PORT}")
-////        context.registerReceiver(broadcastReceiver, filter, Context.RECEIVER_EXPORTED)
-//
-//
-//
-//        // Query for the actual service instead of hardcoding
-//        val intent = Intent("com.geeksville.mesh.Service")
-//        val resolveInfo = context.packageManager.queryIntentServices(intent, 0)
-//
-//        if (resolveInfo.isEmpty()) {
-//            println("❌ Meshtastic service not found!")
-//            return
-//        }
-//
-//        val serviceInfo = resolveInfo[0].serviceInfo
-//        println("✅ Found service: ${serviceInfo.packageName}/${serviceInfo.name}")
-//
-//        intent.setClassName(serviceInfo.packageName, serviceInfo.name)
-//        serviceConnectionWrapper.bind(intent) // Modify bind() to accept intent
-//    }
-
     fun connect() {
         // 1. Find and bind to the Meshtastic service
         val intent = Intent("com.geeksville.mesh.Service")
@@ -100,24 +66,10 @@ class MeshtasticPortal(private val context: Context) {
         intent.setClassName(serviceInfo.packageName, serviceInfo.name)
         serviceConnectionWrapper.bind(intent)
 
-        // 2. Register broadcast receiver for incoming messages on your port
-//        val filter = IntentFilter("com.geeksville.mesh.RECEIVED.${OUR_PORT}")
-//        context.registerReceiver(broadcastReceiver, filter, Context.RECEIVER_EXPORTED)
-
-////        val f1 = IntentFilter("com.geeksville.mesh.RECEIVED_DATA")
-//        val f1 = IntentFilter("com.geeksville.mesh.RECEIVED.1") // Match what you send
-////        val f2 = IntentFilter("com.geeksville.mesh.RECEIVED.${MeshtasticPortal.OUR_PORT}")
-//        ContextCompat.registerReceiver(
-//            context,
-//            broadcastReceiver,
-//            f1,
-//            ContextCompat.RECEIVER_NOT_EXPORTED
-//        )
-////        context.registerReceiver(broadcastReceiver, f2)
 
         val filter = IntentFilter().apply {
             addAction("com.geeksville.mesh.RECEIVED.1")
-            addAction("com.geeksville.mesh.RECEIVED.${MeshtasticPortal.OUR_PORT}")
+            addAction("com.geeksville.mesh.RECEIVED.${OUR_PORT}")
             addAction("com.geeksville.mesh.RECEIVED_DATA") // optional catch-all
         }
 
@@ -182,10 +134,24 @@ class ExtendedBroadcastReceiver(
 
         //#2 shoot callback if extracted EXISTS
         if (packet != null) {
-            val bytes = packet.bytes?.toByteArray()
-            val message = String(bytes ?: byteArrayOf())
+//            val bytes = packet.bytes?.toByteArray()
+//            val message = String(bytes ?: byteArrayOf())
 
-            Toast.makeText(context, "📨 $message", Toast.LENGTH_LONG).show() // todo: TOAST parsed NOT NULL message from the outside
+
+            val bytes = packet.bytes?.toByteArray()
+            if (bytes != null) {
+                // Попробуем распарсить как наш PinMessage
+                try {
+                    val pin = PinMessage.parseFrom(bytes)
+                    Toast.makeText(context, "✅ Pin ${pin.pinLogicalId}", Toast.LENGTH_SHORT).show()
+                    onMessageReceived(bytes)  // передаём байты дальше
+                } catch (e: Exception) {
+                    Toast.makeText(context, "❌ Не наш protobuf", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+
+//            Toast.makeText(context, "📨 $message", Toast.LENGTH_LONG).show() // todo: TOAST parsed NOT NULL message from the outside
 
             bytes?.let { onMessageReceived(it) }
         } else {
@@ -244,13 +210,12 @@ class ServiceConnectionWrapper(
             val packet = DataPacket(
                 to = DataPacket.ID_BROADCAST,
                 bytes = outgoingMessage.toByteString(),
-                dataType = PortNum.TEXT_MESSAGE_APP.value, // == 1
+                dataType =  MeshtasticPortal.OUR_PORT,// OUR PORT finally! //PortNum.TEXT_MESSAGE_APP.value, // == 1
                 from = DataPacket.ID_LOCAL,
                 id = packetId, // IMPORTANT, built in id system
                 channel = 0, // TODO primary channel for now, switch later (portal send fun argument?)
-                wantAck = true,
+                wantAck = false,
                 transportMechanism = MeshPacket.TransportMechanism.TRANSPORT_LORA.value, // == 1
-//                hopLimit = 3,
             )
             meshService?.send(packet) // 🚀🚀🚀 FIRE HERE
         } catch (e: Exception) {

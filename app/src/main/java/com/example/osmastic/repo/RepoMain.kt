@@ -7,11 +7,16 @@ import com.example.osmastic.PinUI
 import com.example.osmastic.db.AppDatabase
 import com.example.osmastic.db.Pin
 import com.example.osmastic.ether.MeshtasticPortal
+import com.google.protobuf.Internal
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
+
+import com.example.osmastic.ether.PinMessage
+import com.example.osmastic.ether.pinMessage
+import com.google.protobuf.ByteString
 
 class RepoPin(
     val fuckingContext: Context,
@@ -83,6 +88,44 @@ class RepoPin(
             expirationTimestamp = incomingPinLogical.expirationTimestamp,
         )
     }
+    private fun stripDefaults(builderProtobuf: PinMessage.Builder, incomingPinLogical: PinLogical): PinMessage.Builder {
+
+        val defaultPin = PinLogical(
+            pinLogicalId = 1,
+            editorHash = byteArrayOf(),
+            pinPhysProps = PinUI(
+                geoPoint = GeoPoint(
+                    0.0,
+                    0.0
+                ),
+            )
+        )
+
+        val ipl = incomingPinLogical // conv
+        if (ipl.lamportEpoch != defaultPin.lamportEpoch)
+            builderProtobuf.setLamportEpoch(ipl.lamportEpoch)
+        if (ipl.pinPhysProps.rotationByte != defaultPin.pinPhysProps.rotationByte)
+            builderProtobuf.setRotationByte(ipl.pinPhysProps.rotationByte!!)
+        if (ipl.pinPhysProps.iconUnicode != defaultPin.pinPhysProps.iconUnicode)
+            builderProtobuf.setIconUnicode(ipl.pinPhysProps.iconUnicode)
+        if (ipl.pinPhysProps.label != defaultPin.pinPhysProps.label)
+            builderProtobuf.setLabel(ipl.pinPhysProps.label)
+        if (ipl.pinPhysProps.isHiddenBeforeTTL != defaultPin.pinPhysProps.isHiddenBeforeTTL)
+            builderProtobuf.setIsHiddenBeforeTtl(ipl.pinPhysProps.isHiddenBeforeTTL)
+        if (ipl.pinPhysProps.hoursTTL != defaultPin.pinPhysProps.hoursTTL)
+            builderProtobuf.setHoursTTL(ipl.pinPhysProps.hoursTTL)
+
+        return builderProtobuf
+    }
+    private fun prepCreationProtobuf(incomingPinLogical: PinLogical): PinMessage {
+        val pinMessBuilder = stripDefaults(PinMessage.newBuilder(), incomingPinLogical)
+        pinMessBuilder.setPinLogicalId(incomingPinLogical.pinLogicalId)
+        pinMessBuilder.setEditorHash(ByteString.copyFrom(incomingPinLogical.editorHash))
+        pinMessBuilder.setLat(incomingPinLogical.pinPhysProps.geoPoint.latitude.toFloat())
+        pinMessBuilder.setLon(incomingPinLogical.pinPhysProps.geoPoint.longitude.toFloat())
+
+        return pinMessBuilder.build()
+    }
 
 // 🛟🛟🛟 PRIVATE HELPERS 🛟🛟🛟
 
@@ -92,8 +135,9 @@ class RepoPin(
 
         when (val result = validatePin(incomingPinLogical)) {
             is ValidationResult.Valid -> {
-                val idInternal = dao.insert(convertToEntity(incomingPinLogical))
-                // <radio send here?>
+                // TODO: ОТПРАВКА ТУТА
+                val logicalIdInternal = dao.insert(convertToEntity(incomingPinLogical))
+                val meshMessageId = portalToMesh.serviceConnectionWrapper.sendToTheEther(prepCreationProtobuf(incomingPinLogical).toByteArray())
                 Toast.makeText(fuckingContext, "SAVED, logID: ${incomingPinLogical.pinLogicalId}", Toast.LENGTH_SHORT).show()
                 return true
             }

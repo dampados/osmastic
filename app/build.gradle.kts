@@ -9,6 +9,9 @@ plugins {
     // HILT bc viewModel() factory bc context for the ROOM
 //    id("com.google.dagger.hilt.android")
     alias(libs.plugins.hilt)
+
+    // protobuf support
+    alias(libs.plugins.protobuf)
 }
 
 android {
@@ -50,7 +53,45 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // proto files path?
+//    sourceSets {
+//        getByName("main") {
+//            proto {
+//                srcDir("src/main/proto")
+//            }
+//        }
+//    }
+
+    sourceSets {
+        getByName("main") {
+            kotlin.srcDir("build/generated/sources/proto/main/kotlin")
+        }
+    }
+
+
 }
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${libs.versions.protoc.get()}"
+    }
+    generateProtoTasks {
+        all().configureEach {
+            builtins {
+                create("java") {
+                    option("lite")
+                }
+                create("kotlin") {
+                    option("lite")
+                }
+            }
+        }
+    }
+}
+
+// default path? not needed? god knows
+//android.sourceSets.getByName("main").proto.srcDir("src/main/proto")
 
 dependencies {
     implementation(libs.androidx.core.ktx)
@@ -104,4 +145,8 @@ dependencies {
 
     // android 10 desugaring or back porting AUTOMATIC
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
+
+    //protobuf
+    implementation(libs.protobuf.kotlin.lite)
+    implementation(libs.protobuf.javalite)
 }
