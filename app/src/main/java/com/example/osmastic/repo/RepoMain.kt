@@ -4,26 +4,15 @@ import android.content.Context
 import android.widget.Toast
 import com.example.osmastic.PinLogical
 import com.example.osmastic.PinUI
-import com.example.osmastic.StateMapModel
 import com.example.osmastic.db.AppDatabase
 import com.example.osmastic.db.Pin
 import com.example.osmastic.ether.MeshtasticPortal
-import com.google.protobuf.Internal
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 
 import com.example.osmastic.ether.PinMessage
-import com.example.osmastic.ether.pinMessage
 import com.google.protobuf.ByteString
-import com.google.protobuf.copy
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import java.security.SecureRandom
 
 class RepoPin(
     val fuckingContext: Context,
@@ -43,23 +32,23 @@ class RepoPin(
     }
 
 
-    init {
-        portalToMesh.connect()
-
-        CoroutineScope(Dispatchers.Main).launch {
-            portalToMesh._incomingMessagesFlowRW.collect { bytes ->
-                val message = String(bytes)
-                Toast.makeText(fuckingContext, "📨 $message", Toast.LENGTH_LONG).show()
-            }
-        }
-
-        CoroutineScope(Dispatchers.Main).launch {
-            delay(2000)
-//            val info = portalToMesh.serviceConnectionWrapper.getMyNodeInfo()
-//            Toast.makeText(fuckingContext, "📡 $info", Toast.LENGTH_LONG).show()
-//            println("📡 $info")
-        }
-    }
+//    init {
+//        portalToMesh.connect()
+//
+//        CoroutineScope(Dispatchers.Main).launch {
+//            portalToMesh._incomingMessagesFlowRW.collect { bytes ->
+//                val message = String(bytes)
+//                Toast.makeText(fuckingContext, "📨 $message", Toast.LENGTH_LONG).show()
+//            }
+//        }
+//
+//        CoroutineScope(Dispatchers.Main).launch {
+//            delay(2000)
+////            val info = portalToMesh.serviceConnectionWrapper.getMyNodeInfo()
+////            Toast.makeText(fuckingContext, "📡 $info", Toast.LENGTH_LONG).show()
+////            println("📡 $info")
+//        }
+//    }
 
 
 
@@ -136,12 +125,10 @@ class RepoPin(
         return pinMessBuilder.build()
     }
 
-
-
-    private fun deserializePinLogical(incomingMessageBytes: ByteArray): PinLogical {
+    //TODO deserialize NO COORDINATES CASE YET!
+    private fun buildLogicalFromMessage(pinMessage: PinMessage): PinLogical {
 
         //#1 introduce football teams:
-        val pinProtobuf = PinMessage.parseFrom(incomingMessageBytes)
         val defaultPin = PinLogical(
             pinLogicalId = 1,
             editorHash = byteArrayOf(),
@@ -154,10 +141,10 @@ class RepoPin(
         )
 
         //#2 poshla ebka
-        val _pinLogicalId = pinProtobuf.pinLogicalId
-        val _editorHash = pinProtobuf.editorHash
-        val _lamportEpoch = if (pinProtobuf.hasLamportEpoch()) pinProtobuf.lamportEpoch else defaultPin.lamportEpoch
-        val _hoursTTL = if (pinProtobuf.hasHoursTTL()) pinProtobuf.hoursTTL else defaultPin.pinPhysProps.hoursTTL
+        val _pinLogicalId = pinMessage.pinLogicalId
+        val _editorHash = pinMessage.editorHash
+        val _lamportEpoch = if (pinMessage.hasLamportEpoch()) pinMessage.lamportEpoch else defaultPin.lamportEpoch
+        val _hoursTTL = if (pinMessage.hasHoursTTL()) pinMessage.hoursTTL else defaultPin.pinPhysProps.hoursTTL
 
         val HOUR = 3600
         val MINUTE = 60 // todo UGLY DEBUG remove later
@@ -166,13 +153,13 @@ class RepoPin(
 
 //        val _lat = if (pinProtobuf.hasLat()) pinProtobuf.lat else dao.getById(_pinLogicalId)?.latitude  // UGLY?
 //        val _lon = if (pinProtobuf.hasLon()) pinProtobuf.lon else dao.getById(_pinLogicalId)?.longitude // UGLY?
-        val _lat = if (pinProtobuf.hasLat()) pinProtobuf.lat else 0.0
-        val _lon = if (pinProtobuf.hasLon()) pinProtobuf.lon else 0.0 //TODO HOUSTON WE GOT no good way to check if we already have coordinates.
+        val _lat = if (pinMessage.hasLat()) pinMessage.lat else 0.0
+        val _lon = if (pinMessage.hasLon()) pinMessage.lon else 0.0 //TODO HOUSTON WE GOT no good way to check if we already have coordinates.
 
-        val _rotationByte = if (pinProtobuf.hasRotationByte()) pinProtobuf.rotationByte else defaultPin.pinPhysProps.rotationByte
-        val _iconUnicode = if (pinProtobuf.hasIconUnicode()) pinProtobuf.iconUnicode else defaultPin.pinPhysProps.iconUnicode
-        val _label = if (pinProtobuf.hasLabel()) pinProtobuf.label else defaultPin.pinPhysProps.label
-        val _isHiddenBeforeTTL = if (pinProtobuf.hasIsHiddenBeforeTtl()) pinProtobuf.isHiddenBeforeTtl else defaultPin.pinPhysProps.isHiddenBeforeTTL
+        val _rotationByte = if (pinMessage.hasRotationByte()) pinMessage.rotationByte else defaultPin.pinPhysProps.rotationByte
+        val _iconUnicode = if (pinMessage.hasIconUnicode()) pinMessage.iconUnicode else defaultPin.pinPhysProps.iconUnicode
+        val _label = if (pinMessage.hasLabel()) pinMessage.label else defaultPin.pinPhysProps.label
+        val _isHiddenBeforeTTL = if (pinMessage.hasIsHiddenBeforeTtl()) pinMessage.isHiddenBeforeTtl else defaultPin.pinPhysProps.isHiddenBeforeTTL
 
         //#3 construct and return
         return PinLogical(
@@ -206,7 +193,7 @@ class RepoPin(
                 // TODO: ОТПРАВКА ТУТА
                 val logicalIdInternal = dao.insert(convertToEntity(incomingPinLogical))
                 val meshMessageId = portalToMesh.serviceConnectionWrapper.sendToTheEther(prepCreationProtobuf(incomingPinLogical).toByteArray())
-                Toast.makeText(fuckingContext, "SAVED, logID: ${incomingPinLogical.pinLogicalId}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(fuckingContext, "SIDE EFFECT, logID: ${incomingPinLogical.pinLogicalId}", Toast.LENGTH_SHORT).show()
                 return true
             }
             is ValidationResult.Invalid -> {
@@ -238,11 +225,31 @@ class RepoPin(
     suspend fun deleteBulkByLogicalIds(pinLogicalIds: Set<Int>): Int {
         return dao.deleteBulkByLogicalIds(pinLogicalIds)
     }
-    fun handleIncomingMessage(incomingMessage: ByteArray) {
+    suspend fun handleIncomingPinMessage(parsedRawPinMessage: PinMessage) {
 
-        _incomingPinsListStateRW.update { currentList ->
-            currentList + deserializePinLogical(incomingMessage)
+        // #0 - NEW MESSAGE RECEIVED! I WONDER WHATS THERE?..
+        // #1 deserialize
+        // #2 make decision
+
+        // #0 DECISION
+        if (parsedRawPinMessage.hasLamportEpoch()) {
+            // TODO implement update
+        } else {
+            // pure creation
+
         }
+
+        // #1
+//        if (!dao.pinExists(parsedRawPinMessage.pinLogicalId)) {
+//
+//            val incomingPinLogical = buildLogicalFromMessage(parsedRawPinMessage)
+//
+//
+//        } else return
+
+
+
+        Toast.makeText(fuckingContext, "RECEIVED PIN ID: ${parsedRawPinMessage.pinLogicalId}", Toast.LENGTH_SHORT ).show()
 
     }
 

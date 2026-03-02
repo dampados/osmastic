@@ -29,6 +29,10 @@ interface PinDao {
     @Query("DELETE FROM pin WHERE pinLogicalId IN (:pinLogicalIds)")
     suspend fun deleteBulkByLogicalIds(pinLogicalIds: Set<Int>): Int
 
+    // COLLISION SEEKING
+    @Query("SELECT EXISTS(SELECT 1 FROM pin WHERE pinLogicalId = :id)")
+    suspend fun pinExists(id: Int): Boolean
+
 }
 
 // !!!OBSOLETE!!! think about it...

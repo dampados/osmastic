@@ -25,6 +25,8 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
                       private val onTapLongCallback: suspend (Context, GeoPoint) -> PinLogical, //  LONG TAPS
                       private val onPinClick: suspend (Context) -> Unit
 ) {
+
+    // TODO: GLOBAL - ADD SHARED COROUTINE SCOPE! THESE Dispatchers.Main - MONSTROUS
     private val mapView: MapView // OUTSOURCED MAPVIEW !!!
 
     init { // FACTORY ONE TIME INSTANTIATION
@@ -146,6 +148,10 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
 
         val markers = incomingPins.map { incomingPin -> constructMarkerFromLogicalPin(incomingPin) }
         mapView.overlays.addAll(markers)
+        // No exception handling above NEEDED because:
+        // - constructMarkerFromLogicalPin always returns a valid marker (no external resources)
+        // - mapView.overlays.addAll only fails on null elements (we have none)
+        // - mapView.invalidate() is a simple redraw request
         mapView.invalidate()
     }
     fun doGarbageCollect(invalidIds: Set<Int>): Set<Int> {

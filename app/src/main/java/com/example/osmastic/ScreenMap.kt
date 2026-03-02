@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.currentComposer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -124,7 +123,8 @@ data class StateMapModel(
     ),
     val pins: List<PinLogical> = emptyList(), // HOT PINS!
     val pinRemoveInquiries: Set<PinRemoveInquiry> = emptySet(), // INVALID PINS IDS FOR DELAYED GC!
-    val incomingMessages: List<String> = emptyList() // TODO TEMP DEBUG REMOVE incoming messages in the state
+    val pinRenderInquiries: List<PinLogical> = emptyList(),      // LaunchedEffect MUST be able to observe DELTAS
+    val incomingMessages: List<String> = emptyList(), // TODO TEMP DEBUG REMOVE incoming messages in the state
 )
 @HiltViewModel
 class StateMapViewModel @Inject constructor(
@@ -144,23 +144,8 @@ class StateMapViewModel @Inject constructor(
     private var jobViewPortStateColdUpdate: Job? = null
 
 
-    // TODO oh my god block, wtf block
-    init {
-        viewModelScope.launch {
-            repoPin.portalToMesh._incomingMessagesFlowRW.collect { bytes ->
-                val message = String(bytes)
-                _mapStateRW.update { current ->
-                    current.copy(
-                        incomingMessages = current.incomingMessages + message
-                    )
-                }
-            }
-        }
-    }
-
-
     // ➡️➡️➡️ INTERACTIVE
-    suspend fun saveViewPortToColdStorage() {
+    private suspend fun saveViewPortToColdStorage() {
         val currentViewPort = _mapStateRW.value.viewPort
         mapPrefsManager.saveMapPos(currentViewPort)
     }
@@ -232,7 +217,6 @@ class StateMapViewModel @Inject constructor(
     fun constructAndPushPinFull(pinUI: PinUI) =
         pushOnePinLogicalToModel(pinUI)
 
-
     fun replaceInvalidPinIds(incomingInquiries: Set<PinRemoveInquiry>, /*incomingReallyRemoved: Set<Int>*/) {
         _mapStateRW.update { current ->
             current.copy(
@@ -241,31 +225,26 @@ class StateMapViewModel @Inject constructor(
             )
         }
     }
-    fun subtractAllPins(incomingInvalidPinsIds: Set<Int>) {
+    fun subtractFromAllPins(incomingInvalidPinsIds: Set<Int>) {
         _mapStateRW.update { current ->
             current.copy(
                 pins = current.pins.filterNot { it.pinLogicalId in incomingInvalidPinsIds }
             )
         }
     }
-
-
-
     // from cold and bulk, thats the idea for this one for now.
     fun replaceAllPins(incomingPins: List<PinLogical>) {
         _mapStateRW.update { current ->
             current.copy(pins = incomingPins)
         }
     }
-
-    fun pushMessage(string: String) {
-        _mapStateRW.update { current ->
-            current.copy(
-                incomingMessages = current.incomingMessages + string
-            )
-        }
-    }
-
+//    fun subtractFromDrawInquiries(incomingRenderedPins: List<PinLogical>) {
+//        _mapStateRW.update { current ->
+//            current.pinRenderInquiries(
+//                current.pinRenderInquiries - incomingRenderedPins
+//            )
+//        }
+//    }
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
@@ -362,7 +341,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             val wereReallyRemovedIds = invalidIds - couldNotRemoveIds
 
             //#4 substract MVU pins with what was REALLY REMOVED FROM ROOM + PHYSICAL
-            viewModel.subtractAllPins(wereReallyRemovedIds)
+            viewModel.subtractFromAllPins(wereReallyRemovedIds)
 
             //#5 replace all pins in pinRemoveInquiries on what WASNT REMOVED (if empty - okay)
             viewModel.replaceInvalidPinIds(couldNotRemoveObj)
@@ -402,14 +381,16 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     }
 
     // TODO: эффектик для реакци на пополнение в пришедших пинах
-    LaunchedEffect(Unit) {  // ← key = Unit — запускается один раз
-        viewModel.repoPin.incomingPinsListStateR.collect { pinsList ->
-            // Будет вызываться при каждом изменении списка
-            Toast.makeText(ctx, "Новых пинов: ${pinsList.size}", Toast.LENGTH_SHORT).show()
-        }
-
-        viewModel.pushMessage("ass")
-    }
+//    LaunchedEffect(Unit) {  // ← key = Unit — запускается один раз
+//
+//
+//        viewModel.repoPin.incomingPinsListStateR.collect { pinsList ->
+//            // Будет вызываться при каждом изменении списка
+//            Toast.makeText(ctx, "Новых пинов: ${pinsList.size}", Toast.LENGTH_SHORT).show()
+//            viewModel.pushMessage("ass")
+//        }
+//
+//    }
 
     // 🎣🎣🎣 EFFECTS BLOCK 🎣🎣🎣
 
