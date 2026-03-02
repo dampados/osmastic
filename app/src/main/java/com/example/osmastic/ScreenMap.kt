@@ -107,7 +107,8 @@ data class PinUI(
 )
 data class PinLogical(
     val pinLogicalId: Int,
-    val editorHash: ByteArray,
+//    val editorHash: ByteArray,
+    val editorHash: String,
     val lamportEpoch: Int = 1,
     val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
     val pinPhysProps: PinUI,
@@ -121,10 +122,9 @@ data class StateMapModel(
         mapZoom = 11.0,
         mapBearing = 0f
     ),
-    val pins: List<PinLogical> = emptyList(), // HOT PINS!
+    val pins: Set<PinLogical> = emptySet(), // HOT PINS!
+    val pinRenderInquiries: Set<PinLogical> = emptySet(),      // LaunchedEffect MUST be able to observe DELTAS
     val pinRemoveInquiries: Set<PinRemoveInquiry> = emptySet(), // INVALID PINS IDS FOR DELAYED GC!
-    val pinRenderInquiries: List<PinLogical> = emptyList(),      // LaunchedEffect MUST be able to observe DELTAS
-    val incomingMessages: List<String> = emptyList(), // TODO TEMP DEBUG REMOVE incoming messages in the state
 )
 @HiltViewModel
 class StateMapViewModel @Inject constructor(
@@ -144,12 +144,18 @@ class StateMapViewModel @Inject constructor(
     private var jobViewPortStateColdUpdate: Job? = null
 
 
+    init {
+        repoPin.onHandledPinCreationRequestCallback = { builtPinLogicalNew ->
+            pushPinFromTop(builtPinLogicalNew)
+        }
+    }
+
     // ➡️➡️➡️ INTERACTIVE
     private suspend fun saveViewPortToColdStorage() {
         val currentViewPort = _mapStateRW.value.viewPort
         mapPrefsManager.saveMapPos(currentViewPort)
     }
-    private fun pushOnePinLogicalToModel(incomingPinUI: PinUI): PinLogical {
+    private fun pushOnePinLogicalToModelReaction(incomingPinUI: PinUI): PinLogical {
         val HOUR = 3600
         val MINUTE = 60 // todo UGLY DEBUG remove later
         val SECOND = 1  // todo UGLY DEBUG remove later
@@ -163,7 +169,8 @@ class StateMapViewModel @Inject constructor(
 
         val newPinLogical = PinLogical(
             pinLogicalId = SecureRandom().nextInt(1 shl 24),
-            editorHash = byteArrayOf((editorHashInt shr 16).toByte(), (editorHashInt shr 8).toByte(), editorHashInt.toByte()),
+//            editorHash = byteArrayOf((editorHashInt shr 16).toByte(), (editorHashInt shr 8).toByte(), editorHashInt.toByte()),
+            editorHash = "myass",
             expirationTimestamp = calculatedExpTimestamp,
             pinPhysProps = incomingPinUI
         )
@@ -194,6 +201,14 @@ class StateMapViewModel @Inject constructor(
 
         return newPinLogical
     }
+    private fun pushPinFromTop(incomingPinLogical: PinLogical) {
+        _mapStateRW.update { current ->
+            current.copy(
+                pins = current.pins + incomingPinLogical,
+                pinRenderInquiries = current.pinRenderInquiries + incomingPinLogical,
+            )
+        }
+    }
 
     // AVAILABLE METHODS
     fun updateViewPort(incomingViewPort: ViewPort) { // DEBOUNCING FUNC
@@ -213,38 +228,51 @@ class StateMapViewModel @Inject constructor(
         }
     }
     fun constructAndPushPinQuick(geoPoint: GeoPoint) =
-        pushOnePinLogicalToModel(PinUI(geoPoint))
+        pushOnePinLogicalToModelReaction(PinUI(geoPoint))
     fun constructAndPushPinFull(pinUI: PinUI) =
-        pushOnePinLogicalToModel(pinUI)
+        pushOnePinLogicalToModelReaction(pinUI)
 
     fun replaceInvalidPinIds(incomingInquiries: Set<PinRemoveInquiry>, /*incomingReallyRemoved: Set<Int>*/) {
         _mapStateRW.update { current ->
             current.copy(
                 pinRemoveInquiries = incomingInquiries,
-//                pins = current.pins.filterNot { it.pinLogicalId in incomingReallyRemoved }
             )
         }
     }
-    fun subtractFromAllPins(incomingInvalidPinsIds: Set<Int>) {
+
+//    fun subtractFromAllPins(incomingInvalidPinsIds: Set<Int>) {
+//        _mapStateRW.update { current ->
+//            current.copy(
+////                pins = current.pins.filterNot { it.pinLogicalId in incomingInvalidPinsIds }
+//                pins = current.pins - { }
+//            )
+//        }
+//    }
+
+    fun subtractFromAllPins(incomingInvalidPinIds: Set<Int>) {
         _mapStateRW.update { current ->
             current.copy(
-                pins = current.pins.filterNot { it.pinLogicalId in incomingInvalidPinsIds }
+                pins = current.pins.filterTo(mutableSetOf()) {
+                    it.pinLogicalId !in incomingInvalidPinIds
+                }
             )
         }
     }
+
     // from cold and bulk, thats the idea for this one for now.
-    fun replaceAllPins(incomingPins: List<PinLogical>) {
+    fun replaceAllPins(incomingPins: Set<PinLogical>) {
         _mapStateRW.update { current ->
             current.copy(pins = incomingPins)
         }
     }
-//    fun subtractFromDrawInquiries(incomingRenderedPins: List<PinLogical>) {
-//        _mapStateRW.update { current ->
-//            current.pinRenderInquiries(
-//                current.pinRenderInquiries - incomingRenderedPins
-//            )
-//        }
-//    }
+
+    fun subtractFromRenderInquiries(incomingRenderedPins: Set<PinLogical>) {
+        _mapStateRW.update { current ->
+            current.copy(
+                pinRenderInquiries = current.pinRenderInquiries - incomingRenderedPins
+            )
+        }
+    }
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
@@ -298,7 +326,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 viewModel.constructAndPushPinFull(newPinUI)  // ◀️◀️◀️ and return back... yeah
             },
             onPinClick = { context ->
-                viewModel.repoPin.portalToMesh.sendToPortal("TEST_MESSAGE_OVER_LORA".toByteArray())
+//                viewModel.repoPin.portalToMesh.sendToPortal("TEST_MESSAGE_OVER_LORA".toByteArray())
                 Toast.makeText(ctx, "Emitted message", Toast.LENGTH_SHORT).show()
                 // <HERE PIN CLICK CALLBACK IMPLEMENTATION>  // ◀️◀️◀️ and return back... yeah
             }
@@ -380,16 +408,24 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         }
     }
 
-    // TODO: эффектик для реакци на пополнение в пришедших пинах
-//    LaunchedEffect(Unit) {  // ← key = Unit — запускается один раз
-//
-//
-//        viewModel.repoPin.incomingPinsListStateR.collect { pinsList ->
-//            // Будет вызываться при каждом изменении списка
-//            Toast.makeText(ctx, "Новых пинов: ${pinsList.size}", Toast.LENGTH_SHORT).show()
-//            viewModel.pushMessage("ass")
+    LaunchedEffect(stateOfModel.pinRenderInquiries) {
+
+        if (stateOfModel.pinRenderInquiries.isNotEmpty()) {
+            val pinRenderInquiriesSnapshot = stateOfModel.pinRenderInquiries // SNAPSHOT OF THE STATE!
+            osmdroidManager.pushManyPinsIntoPhysicalView(pinRenderInquiriesSnapshot) // RENDER!
+            viewModel.subtractFromRenderInquiries(pinRenderInquiriesSnapshot) // SUBTRACT SNAPSHOT FROM CURRENT STATE!
+
+            Toast.makeText(ctx, "LE RADIO -> BOTTOM", Toast.LENGTH_SHORT).show()
+        }
+
+    }
+
+//    LaunchedEffect(stateOfModel.pinRenderInquiries) {
+//        if (stateOfModel.pinRenderInquiries.isNotEmpty()) {
+//            val snapshot = stateOfModel.pinRenderInquiries
+//            osmdroidManager.pushManyPinsIntoPhysicalView(snapshot)
+//            viewModel.subtractFromRenderInquiries(snapshot)
 //        }
-//
 //    }
 
     // 🎣🎣🎣 EFFECTS BLOCK 🎣🎣🎣
@@ -418,14 +454,15 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             Text("${stateOfModel.viewPort.mapCenter}", fontSize = 14.sp)
             Text("${stateOfModel.viewPort.mapBearing}", fontSize = 14.sp)
             Text("${stateOfModel.pinRemoveInquiries}", fontSize = 15.sp)
-            Text("${stateOfModel.pins}", fontSize = 10.sp)
+            Text("${stateOfModel.pinRenderInquiries}", fontSize = 15.sp)
+            Text("${stateOfModel.pins}", fontSize = 8.sp)
 //            Text("Center: ${viewModel.uiState.mapCenter.latitude}, ${viewModel.uiState.mapCenter.longitude}")
-            Column {
-                Text("Messages: ${stateOfModel.incomingMessages.size}")
-                stateOfModel.incomingMessages.takeLast(3).forEach { msg ->
-                    Text("📨 $msg", fontSize = 12.sp)
-                }
-            }
+//            Column {
+//                Text("Messages: ${stateOfModel.incomingMessages.size}")
+//                stateOfModel.incomingMessages.takeLast(3).forEach { msg ->
+//                    Text("📨 $msg", fontSize = 12.sp)
+//                }
+//            }
 
         }
     } // Box end

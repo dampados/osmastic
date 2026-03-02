@@ -16,40 +16,20 @@ import kotlinx.coroutines.flow.StateFlow
 
 class RepoPin(
     val fuckingContext: Context,
-//    private val dao: PinDao,
-//    private val radio: MeshtasticRadio
+//    var onHandledPinCreationRequestCallback: (builtPinLogical: PinLogical) -> Unit, // todo: stop being stupid
+    var onHandledPinCreationRequestCallback: ((PinLogical) -> Unit)? = null
 ) {
-    private val _incomingPinsListStateRW = MutableStateFlow<List<PinLogical>>(emptyList()) // RW, but private!
-    val incomingPinsListStateR: StateFlow<List<PinLogical>> = _incomingPinsListStateRW //  readonly!
     private val database by lazy { AppDatabase.getDatabase(fuckingContext) }
     private val dao = database.pinDao()
-
     val portalToMesh = MeshtasticPortal(fuckingContext, this)
-
     private sealed class ValidationResult {
         object Valid : ValidationResult()
         data class Invalid(val errors: List<String>) : ValidationResult()
     }
 
-
-//    init {
-//        portalToMesh.connect()
-//
-//        CoroutineScope(Dispatchers.Main).launch {
-//            portalToMesh._incomingMessagesFlowRW.collect { bytes ->
-//                val message = String(bytes)
-//                Toast.makeText(fuckingContext, "📨 $message", Toast.LENGTH_LONG).show()
-//            }
-//        }
-//
-//        CoroutineScope(Dispatchers.Main).launch {
-//            delay(2000)
-////            val info = portalToMesh.serviceConnectionWrapper.getMyNodeInfo()
-////            Toast.makeText(fuckingContext, "📡 $info", Toast.LENGTH_LONG).show()
-////            println("📡 $info")
-//        }
-//    }
-
+    init {
+        portalToMesh.connect()
+    }
 
 
 // 🛟🛟🛟 PRIVATE HELPERS 🛟🛟🛟
@@ -90,7 +70,8 @@ class RepoPin(
 
         val defaultPin = PinLogical(
             pinLogicalId = 1,
-            editorHash = byteArrayOf(),
+//            editorHash = byteArrayOf(),
+            editorHash = "myass",
             pinPhysProps = PinUI(
                 geoPoint = GeoPoint(
                     0.0,
@@ -118,7 +99,8 @@ class RepoPin(
     private fun prepCreationProtobuf(incomingPinLogical: PinLogical): PinMessage {
         val pinMessBuilder = stripDefaults(PinMessage.newBuilder(), incomingPinLogical)
         pinMessBuilder.setPinLogicalId(incomingPinLogical.pinLogicalId)
-        pinMessBuilder.setEditorHash(ByteString.copyFrom(incomingPinLogical.editorHash))
+//        pinMessBuilder.setEditorHash(ByteString.copyFrom(incomingPinLogical.editorHash))
+        pinMessBuilder.setEditorHash(incomingPinLogical.editorHash) //TODO uncomment! after generation KSP PROTO
         pinMessBuilder.setLat(incomingPinLogical.pinPhysProps.geoPoint.latitude.toFloat())
         pinMessBuilder.setLon(incomingPinLogical.pinPhysProps.geoPoint.longitude.toFloat())
 
@@ -131,7 +113,8 @@ class RepoPin(
         //#1 introduce football teams:
         val defaultPin = PinLogical(
             pinLogicalId = 1,
-            editorHash = byteArrayOf(),
+//            editorHash = byteArrayOf(),
+            editorHash = "myass",
             pinPhysProps = PinUI(
                 geoPoint = GeoPoint(
                     0.0,
@@ -164,7 +147,8 @@ class RepoPin(
         //#3 construct and return
         return PinLogical(
             pinLogicalId = _pinLogicalId,
-            editorHash = _editorHash.toByteArray(),
+            editorHash = _editorHash,
+//            editorHash = "myass",
             lamportEpoch = _lamportEpoch,
             expirationTimestamp = _expirationTimestamp,
             pinPhysProps = PinUI(
@@ -204,52 +188,53 @@ class RepoPin(
             }
         }
     }
-    suspend fun getAllPins(): List<PinLogical> {
-        return dao.getAll().map { entity ->
+    suspend fun getAllPins(): Set<PinLogical> {
+        return dao.getAll().map { fetchedEntity ->
             PinLogical(
-                pinLogicalId = entity.pinLogicalId,
-                lamportEpoch = entity.lamportEpoch,
-                editorHash = entity.editorHash,
-                expirationTimestamp = entity.expirationTimestamp,
+                pinLogicalId = fetchedEntity.pinLogicalId,
+                lamportEpoch = fetchedEntity.lamportEpoch,
+                editorHash = fetchedEntity.editorHash,
+                expirationTimestamp = fetchedEntity.expirationTimestamp,
                 pinPhysProps = PinUI(
-                    geoPoint = GeoPoint(entity.latitude / 1e6, entity.longitude / 1e6),
-                    iconUnicode = entity.iconUnicode,
-                    label = entity.label,
-                    rotationByte = entity.rotationByte,
-                    isHiddenBeforeTTL = entity.isHiddenBeforeTTL,
-//                    hoursTTL = 6 // You need to store this in DB or derive from expiration
+                    geoPoint = GeoPoint(fetchedEntity.latitude / 1e6, fetchedEntity.longitude / 1e6),
+                    iconUnicode = fetchedEntity.iconUnicode,
+                    label = fetchedEntity.label,
+                    rotationByte = fetchedEntity.rotationByte,
+                    isHiddenBeforeTTL = fetchedEntity.isHiddenBeforeTTL,
+//                    hoursTTL = fetchedEntity.hour, // TODO: decide do i STORE hoursTTL or NOT?
                 )
             )
-        }
+        }.toSet()
     }
     suspend fun deleteBulkByLogicalIds(pinLogicalIds: Set<Int>): Int {
         return dao.deleteBulkByLogicalIds(pinLogicalIds)
     }
     suspend fun handleIncomingPinMessage(parsedRawPinMessage: PinMessage) {
-
-        // #0 - NEW MESSAGE RECEIVED! I WONDER WHATS THERE?..
-        // #1 deserialize
-        // #2 make decision
-
         // #0 DECISION
         if (parsedRawPinMessage.hasLamportEpoch()) {
             // TODO implement update
+            //  if (dao.pinExists(parsedRawPinMessage.pinLogicalId)) {
+            //      <update!>
+            //  } else {
+            //      <drop! invalid garbage!>
+            // }
+
         } else {
             // pure creation
+            val builtPinLogical = buildLogicalFromMessage(parsedRawPinMessage)
+
+            when (val result = validatePin(builtPinLogical)) {
+                is ValidationResult.Valid -> {
+                    val logicalIdInternal = dao.insert(convertToEntity(builtPinLogical))
+//                    val meshMessageId = portalToMesh.serviceConnectionWrapper.sendToTheEther(prepCreationProtobuf(builtPinLogical).toByteArray())
+                    onHandledPinCreationRequestCallback?.invoke(builtPinLogical)
+                }
+                is ValidationResult.Invalid -> { /* JUST DROP? */ }
+            }
 
         }
 
-        // #1
-//        if (!dao.pinExists(parsedRawPinMessage.pinLogicalId)) {
-//
-//            val incomingPinLogical = buildLogicalFromMessage(parsedRawPinMessage)
-//
-//
-//        } else return
-
-
-
-        Toast.makeText(fuckingContext, "RECEIVED PIN ID: ${parsedRawPinMessage.pinLogicalId}", Toast.LENGTH_SHORT ).show()
+//        Toast.makeText(fuckingContext, "RECEIVED PIN ID: ${parsedRawPinMessage.pinLogicalId}", Toast.LENGTH_SHORT ).show() //TODO: toast receuved debug toast
 
     }
 

@@ -7,7 +7,7 @@ option java_multiple_files = true;
 
 message PinMessage {
       int32 pin_logical_id = 1;
-      bytes editor_hash = 2;
+      string editor_hash = 2;
   optional int32 lamport_epoch = 3;
   optional float lat = 4;
   optional float lon = 5;

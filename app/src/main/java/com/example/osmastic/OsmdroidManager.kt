@@ -20,7 +20,7 @@ import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
 class OsmdroidManager(private val appContext: Context,                 // CLASS WRAPPER AROUND THE MapView !!!
                       private val onMapMovedCallback: (ViewPort) -> Unit, // SIMPLE CALLBACK! TO HERE WE PLACE LATER WHAT WILL UPDATE BOTH HOT + COLD!
                       private val onMapReadyViewPortCallback: suspend () -> ViewPort, // SIMPLE CALLBACK! we put cold state loading call!!! on the event afer which its safe
-                      private val onMapReadyInitialPinsCallback: suspend () -> List<PinLogical>,
+                      private val onMapReadyInitialPinsCallback: suspend () -> Set<PinLogical>,
                       private val onTapShortCallback: suspend (Context, GeoPoint) -> PinLogical, // SHORT TAPS REACTION CALLBACK <- a logical pin
                       private val onTapLongCallback: suspend (Context, GeoPoint) -> PinLogical, //  LONG TAPS
                       private val onPinClick: suspend (Context) -> Unit
@@ -143,7 +143,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
         mapView.overlays.add(marker)
         mapView.invalidate()
     }
-    fun pushManyPinsIntoPhysicalView(incomingPins: List<PinLogical>) {
+    fun pushManyPinsIntoPhysicalView(incomingPins: Set<PinLogical>) {
         if (incomingPins.isEmpty()) return
 
         val markers = incomingPins.map { incomingPin -> constructMarkerFromLogicalPin(incomingPin) }

@@ -32,8 +32,8 @@ class MeshtasticPortal(
     // 0. class props, config
     companion object {
         const val OUR_PORT = 256
-//        const val MESH_APP_PACKAGE = "com.geeksville.mesh"
-//        const val MESH_SERVICE_CLASS = "$MESH_APP_PACKAGE.service.MeshService"
+        const val MESH_APP_PACKAGE = "com.geeksville.mesh"
+        const val MESH_SERVICE_CLASS = "$MESH_APP_PACKAGE.service.MeshService"
     }
 
     // 1. AIDL interface for sending
@@ -114,15 +114,15 @@ class MeshtasticPortal(
         // TODO: Unbind service
     }
 
-    suspend fun sendToPortal(data: ByteArray) { // TODO: sendToPortal func obsolete?
-
-        // #1 check if theres anyone to ASK to send the message
-        val meshService = osmasticToMeshtasticLinkInterface ?: run {
-            Toast.makeText(context, "can't send - meshService is not CONNECTED ):", Toast.LENGTH_SHORT) // TODO: TOAST sendToPortal check before sending
-            return
-        }
-        serviceConnectionWrapper.sendToTheEther(data)
-    }
+//    suspend fun sendToPortal(data: ByteArray) { // TODO: sendToPortal func obsolete?
+//
+//        // #1 check if theres anyone to ASK to send the message
+//        val meshService = osmasticToMeshtasticLinkInterface ?: run {
+//            Toast.makeText(context, "can't send - meshService is not CONNECTED ):", Toast.LENGTH_SHORT) // TODO: TOAST sendToPortal check before sending
+//            return
+//        }
+//        serviceConnectionWrapper.sendToTheEther(data)
+//    }
 
     // Get connected node NAME
     suspend fun getNodeName(): String {
@@ -172,6 +172,8 @@ class ServiceConnectionWrapper(
     fun sendToTheEther(outgoingMessage: ByteArray) {
         if (meshService == null) {
             println("❌❌❌❌❌ Cannot send - meshService is dead")
+            Toast.makeText(context, "❌❌❌❌❌ Cannot send - meshService is dead", Toast.LENGTH_LONG).show()
+
             return
         }
 
@@ -190,10 +192,11 @@ class ServiceConnectionWrapper(
             )
             meshService?.send(packet) // 🚀🚀🚀 FIRE HERE
 
-//            Toast.makeText(context, "⬆️⬆️⬆️ SENT SIZE ${outgoingMessage.size}", Toast.LENGTH_SHORT).show() //TODO: size of the outgoing message
+            Toast.makeText(context, "⬆️⬆️⬆️ SENT SIZE ${outgoingMessage.size}", Toast.LENGTH_SHORT).show() //TODO: size of the outgoing message
 
         } catch (e: Exception) {
             println("❌❌❌❌❌ sendToTheEther failed: ${e.message}")
+            Toast.makeText(context, "${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 }
