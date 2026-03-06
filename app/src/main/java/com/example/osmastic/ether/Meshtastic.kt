@@ -114,15 +114,6 @@ class MeshtasticPortal(
         // TODO: Unbind service
     }
 
-//    suspend fun sendToPortal(data: ByteArray) { // TODO: sendToPortal func obsolete?
-//
-//        // #1 check if theres anyone to ASK to send the message
-//        val meshService = osmasticToMeshtasticLinkInterface ?: run {
-//            Toast.makeText(context, "can't send - meshService is not CONNECTED ):", Toast.LENGTH_SHORT) // TODO: TOAST sendToPortal check before sending
-//            return
-//        }
-//        serviceConnectionWrapper.sendToTheEther(data)
-//    }
 
     // Get connected node NAME
     suspend fun getNodeName(): String {

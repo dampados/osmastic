@@ -148,6 +148,9 @@ class StateMapViewModel @Inject constructor(
         repoPin.onHandledPinCreationRequestCallback = { builtPinLogicalNew ->
             pushPinFromTop(builtPinLogicalNew)
         }
+        repoPin.onHandledPinUpdateRequestCallback = { builtPinLogicalNew ->
+            pushPinFromTop(builtPinLogicalNew) //TODO NOT PUSH! find and replace MVU, FAR in DAO cold, FAR in osmdroid!
+        }                                                        // TODO logic for osm: same function, it will manage FAR on its own.
     }
 
     // ➡️➡️➡️ INTERACTIVE

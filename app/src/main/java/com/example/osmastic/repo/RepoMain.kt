@@ -10,14 +10,12 @@ import com.example.osmastic.ether.MeshtasticPortal
 import org.osmdroid.util.GeoPoint
 
 import com.example.osmastic.ether.PinMessage
-import com.google.protobuf.ByteString
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 
 class RepoPin(
     val fuckingContext: Context,
 //    var onHandledPinCreationRequestCallback: (builtPinLogical: PinLogical) -> Unit, // todo: stop being stupid
-    var onHandledPinCreationRequestCallback: ((PinLogical) -> Unit)? = null
+    var onHandledPinCreationRequestCallback: ((PinLogical) -> Unit)? = null,
+    var onHandledPinUpdateRequestCallback: ((PinLogical) -> Unit)? = null,
 ) {
     private val database by lazy { AppDatabase.getDatabase(fuckingContext) }
     private val dao = database.pinDao()
@@ -137,7 +135,7 @@ class RepoPin(
 //        val _lat = if (pinProtobuf.hasLat()) pinProtobuf.lat else dao.getById(_pinLogicalId)?.latitude  // UGLY?
 //        val _lon = if (pinProtobuf.hasLon()) pinProtobuf.lon else dao.getById(_pinLogicalId)?.longitude // UGLY?
         val _lat = if (pinMessage.hasLat()) pinMessage.lat else 0.0
-        val _lon = if (pinMessage.hasLon()) pinMessage.lon else 0.0 //TODO HOUSTON WE GOT no good way to check if we already have coordinates.
+        val _lon = if (pinMessage.hasLon()) pinMessage.lon else 0.0
 
         val _rotationByte = if (pinMessage.hasRotationByte()) pinMessage.rotationByte else defaultPin.pinPhysProps.rotationByte
         val _iconUnicode = if (pinMessage.hasIconUnicode()) pinMessage.iconUnicode else defaultPin.pinPhysProps.iconUnicode
@@ -213,24 +211,51 @@ class RepoPin(
         // #0 DECISION
         if (parsedRawPinMessage.hasLamportEpoch()) {
             // TODO implement update
-            //  if (dao.pinExists(parsedRawPinMessage.pinLogicalId)) {
-            //      <update!>
-            //  } else {
-            //      <drop! invalid garbage!>
-            // }
+              if (dao.pinExists(parsedRawPinMessage.pinLogicalId)) {
+
+                  val storedPinEntity = dao.getById(parsedRawPinMessage.pinLogicalId)!! // !! bc i got checks OUTSIDE, at this point im sure pin exists!
+                  val newPinLogicalHalfBuilt = buildLogicalFromMessage(parsedRawPinMessage)
+                  val newPinLogical = newPinLogicalHalfBuilt.copy(
+                      pinPhysProps = newPinLogicalHalfBuilt.pinPhysProps.copy(
+                          geoPoint = GeoPoint(
+                              storedPinEntity.latitude,
+                              storedPinEntity.longitude
+                          )
+                      )
+                  )
+
+                  if (newPinLogical.lamportEpoch > storedPinEntity.lamportEpoch) {
+
+                      onHandledPinUpdateRequestCallback?.invoke(newPinLogical)
+
+                  } else if (newPinLogical.lamportEpoch < storedPinEntity.lamportEpoch) {
+                      // drop! too logically old //TODO implement HISTORY (so no information gets dropped ever) 3
+                  } else {
+                      // CONFLICT! // TODO determenistic decision mkaing based on meshtastic channel PSK salt + new.editorHash vs old.editorHash
+                  }
+
+              } else {
+//                  <drop! for now its invalid garbage for us!> // TODO implement HISTORY (so no information gets dropped ever) 1
+                  return
+             }
 
         } else {
-            // pure creation
-            val builtPinLogical = buildLogicalFromMessage(parsedRawPinMessage)
+            // pure creation CHECK:
+            if (parsedRawPinMessage.hasLat() && parsedRawPinMessage.hasLon()) {
 
-            when (val result = validatePin(builtPinLogical)) {
-                is ValidationResult.Valid -> {
-                    val logicalIdInternal = dao.insert(convertToEntity(builtPinLogical))
-//                    val meshMessageId = portalToMesh.serviceConnectionWrapper.sendToTheEther(prepCreationProtobuf(builtPinLogical).toByteArray())
-                    onHandledPinCreationRequestCallback?.invoke(builtPinLogical)
+                val builtPinLogical = buildLogicalFromMessage(parsedRawPinMessage)
+                when (val result = validatePin(builtPinLogical)) {
+                    is ValidationResult.Valid -> {
+                        val logicalIdInternal = dao.insert(convertToEntity(builtPinLogical))
+                        onHandledPinCreationRequestCallback?.invoke(builtPinLogical)
+                    }
+                    is ValidationResult.Invalid -> { /* JUST DROP? */ }
                 }
-                is ValidationResult.Invalid -> { /* JUST DROP? */ }
+            } else {
+                //                  <drop! for now its invalid garbage for us!> // TODO implement HISTORY (so no information gets dropped ever) 2
+                return
             }
+
 
         }
 
