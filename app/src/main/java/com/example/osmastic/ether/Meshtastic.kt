@@ -134,7 +134,8 @@ class MeshtasticPortal(
 class ServiceConnectionWrapper(
     private val context: Context,
     private val onServiceReady: (IMeshService) -> Unit
-) {
+)
+{
     // #1 interface AIDL of the meshtastic app
     private var meshService: IMeshService? = null
 

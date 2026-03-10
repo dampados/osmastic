@@ -15,7 +15,6 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -28,8 +27,9 @@ import org.osmdroid.util.GeoPoint
 import kotlin.text.ifEmpty
 
 @Composable
-fun PinCreationDialog(
-    geoPoint: GeoPoint,
+fun PinEditDialog(
+    geoPoint: GeoPoint? = null,
+    existingPinUI: PinUI? = null,
     onConfirm: (PinUI) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -48,9 +48,16 @@ fun PinCreationDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
 
-//
-//                Spacer(modifier = Modifier.height(16.dp))
-                val pinFromPhysical = PinUI(geoPoint = geoPoint)
+//                val pinFromPhysical = if (existingPinUI != null) else PinUI(geoPoint = geoPoint!!)
+//                val pinFromPhysical = PinUI(geoPoint = geoPoint)
+//                val pinFromPhysical = existingPinUI ?: PinUI(geoPoint = geoPoint!!)
+
+                val pinFromPhysical = when {
+                    existingPinUI != null -> existingPinUI
+                    geoPoint != null -> PinUI(geoPoint = geoPoint)
+                    else -> error("PinEditDialog: need either geoPoint or existingPinUI")
+                }
+
                 var selectedTab by remember { mutableStateOf(0) }
                 var pinUnderConstruction by remember { mutableStateOf(pinFromPhysical) }
 
@@ -78,18 +85,19 @@ fun PinCreationDialog(
                     Tab(
                         selected = selectedTab == 4,
                         onClick = { selectedTab = 4 },
-                        text = { Text("⏲️") }
-                    )
-                    Tab(
-                        selected = selectedTab == 5,
-                        onClick = { selectedTab = 5 },
                         text = { Text("🙈") }
                     )
+                    if (existingPinUI == null) {  // I FORBID to edit TTL - TTL is absolute and final
+                        Tab(
+                            selected = selectedTab == 5,
+                            onClick = { selectedTab = 5 },
+                            text = { Text("⏲️") })
+                    }
                 }
 
                 when (selectedTab) {
                     0 -> {
-                        Text("Position update is not yet supported (｡•́︿•̀｡) ${geoPoint.latitude}, ${geoPoint.longitude}")
+                        Text("Position update is not yet supported (｡•́︿•̀｡)")
                     }
                     1 -> {
                         OutlinedTextField(
@@ -125,20 +133,6 @@ fun PinCreationDialog(
                         )
                     }
                     4 -> {
-                        var uiHoursTTL = pinUnderConstruction.hoursTTL
-//                            Text("TTL: $uiHoursTTL hours")
-                        Text("TTL: $uiHoursTTL minutes! testing") //TODO replace on hours!
-                            Slider(
-                                value = uiHoursTTL.toFloat(),
-//                                onValueChange = { ttlHours = it.toInt() },
-                                onValueChange = { sliderValue ->
-                                    pinUnderConstruction = pinUnderConstruction.copy(hoursTTL = sliderValue.toInt())
-                                },
-                                valueRange = 0f..255f,
-                                steps = 253
-                            )
-                    }
-                    5 -> {
                         Switch(
                             checked = pinUnderConstruction.isHiddenBeforeTTL,
                             onCheckedChange = {
@@ -146,10 +140,22 @@ fun PinCreationDialog(
                             }
                         )
                     }
+                    5 -> {
+                        var uiHoursTTL = pinUnderConstruction.hoursTTL
+//                            Text("TTL: $uiHoursTTL hours")
+                        Text("TTL: $uiHoursTTL minutes! testing") //TODO replace on hours!
+                        Slider(
+                            value = uiHoursTTL.toFloat(),
+                            onValueChange = { sliderValue ->
+                                pinUnderConstruction = pinUnderConstruction.copy(hoursTTL = sliderValue.toInt())
+                            },
+                            valueRange = 0f..255f,
+                            steps = 253
+                        )
+                    }
                 }
 
                 Button(onClick = {
-//                    onConfirm(PinUI(geoPoint = geoPoint))
                     onConfirm(pinUnderConstruction)
                 }) {
                     Text("Good")

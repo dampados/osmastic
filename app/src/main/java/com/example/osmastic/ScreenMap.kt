@@ -54,7 +54,7 @@ import com.example.osmastic.repo.RepoPin
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 // MODALS IMPORT
-import com.example.osmastic.modal.PinCreationDialog
+import com.example.osmastic.modal.PinEditDialog
 
 class LabeledMarker(
     mapView: MapView,
@@ -92,6 +92,9 @@ data class PinRemoveInquiry(
     val pinLogicalId: Int,
     val reachedDB: Boolean,
 )
+//data class PinUpdateInquiry(
+//    val
+//)
 data class ViewPort(
     val mapCenter: GeoPoint, // default loc, SPB
     val mapZoom: Double, // obvious
@@ -125,6 +128,7 @@ data class StateMapModel(
     val pins: Set<PinLogical> = emptySet(), // HOT PINS!
     val pinRenderInquiries: Set<PinLogical> = emptySet(),      // LaunchedEffect MUST be able to observe DELTAS
     val pinRemoveInquiries: Set<PinRemoveInquiry> = emptySet(), // INVALID PINS IDS FOR DELAYED GC!
+    val pinUpdateInquiries: Set<PinLogical> = emptySet(), // TODO EXPERIMENTAL update pin inquiries to trigger LAUNCHED EFFECT TO call OSMD callback to: GC + PUSH.
 )
 @HiltViewModel
 class StateMapViewModel @Inject constructor(
@@ -146,10 +150,10 @@ class StateMapViewModel @Inject constructor(
 
     init {
         repoPin.onHandledPinCreationRequestCallback = { builtPinLogicalNew ->
-            pushPinFromTop(builtPinLogicalNew)
+            pushNewPinFromTop(builtPinLogicalNew)
         }
         repoPin.onHandledPinUpdateRequestCallback = { builtPinLogicalNew ->
-            pushPinFromTop(builtPinLogicalNew) //TODO NOT PUSH! find and replace MVU, FAR in DAO cold, FAR in osmdroid!
+            updatePinFromTop(builtPinLogicalNew) //TODO NOT PUSH! find and replace MVU, FAR in DAO cold, FAR in osmdroid!
         }                                                        // TODO logic for osm: same function, it will manage FAR on its own.
     }
 
@@ -158,11 +162,12 @@ class StateMapViewModel @Inject constructor(
         val currentViewPort = _mapStateRW.value.viewPort
         mapPrefsManager.saveMapPos(currentViewPort)
     }
-    private fun pushOnePinLogicalToModelReaction(incomingPinUI: PinUI): PinLogical {
+    private fun pushNewPinFromBottom(incomingPinUI: PinUI): PinLogical {
         val HOUR = 3600
         val MINUTE = 60 // todo UGLY DEBUG remove later
         val SECOND = 1  // todo UGLY DEBUG remove later
 
+        //#0 prep data
         val editorHashInt = SecureRandom().nextInt(1 shl 24)
         val calculatedExpTimestamp = if (incomingPinUI.hoursTTL == 0) {
             0L  // eternal
@@ -170,21 +175,22 @@ class StateMapViewModel @Inject constructor(
             System.currentTimeMillis() + (incomingPinUI.hoursTTL * SECOND * 1000)
         }
 
+        //#1 construct a new pin
         val newPinLogical = PinLogical(
             pinLogicalId = SecureRandom().nextInt(1 shl 24),
-//            editorHash = byteArrayOf((editorHashInt shr 16).toByte(), (editorHashInt shr 8).toByte(), editorHashInt.toByte()),
             editorHash = "myass",
             expirationTimestamp = calculatedExpTimestamp,
             pinPhysProps = incomingPinUI
         )
 
+        //#2 MVU UPDATE
         _mapStateRW.update { current ->
             current.copy(
                 pins = current.pins + newPinLogical  // ← ADD TO PINS LIST
             )
         }
 
-
+        //#3 COLD+RADIO UPDATE
         // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
         viewModelScope.launch {
             val validated = repoPin.pushOnePinFurther(newPinLogical)
@@ -202,9 +208,63 @@ class StateMapViewModel @Inject constructor(
         }
         // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
 
+        //#4 PHYSICAL UPDATE (return what we made and let it finish the sync)
         return newPinLogical
     }
-    private fun pushPinFromTop(incomingPinLogical: PinLogical) {
+
+    fun updatePinFromBottom(oldFoundPinLogical: PinLogical, updatedPinPhysProps: PinUI, ): PinLogical {
+        //#0 prep data
+        //#1 update MVU
+        //#2 launch SIDE EFFECTS (repo)
+        //#999 return NEW pin LOGICAL to visual/physical
+
+        //#0 prep data
+        val newPinLogical = PinLogical(
+            pinLogicalId = oldFoundPinLogical.pinLogicalId,
+            lamportEpoch = oldFoundPinLogical.lamportEpoch + 1,
+            editorHash = oldFoundPinLogical.editorHash,
+            expirationTimestamp = oldFoundPinLogical.expirationTimestamp,
+            pinPhysProps = updatedPinPhysProps,
+        )
+
+        //#1 update MVU
+        _mapStateRW.update { current ->
+            val pinsReconstructed = current.pins.mapTo(mutableSetOf()) { oldPinLogical ->
+                if (oldPinLogical.pinLogicalId == newPinLogical.pinLogicalId) {
+                    newPinLogical
+                } else {
+                    oldPinLogical
+                }
+            }
+            current.copy(
+                pins = pinsReconstructed,
+                pinUpdateInquiries = current.pinUpdateInquiries + newPinLogical,
+            )
+        }
+
+        //#2 launch SIDE EFFECTS (repo)
+        // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
+        viewModelScope.launch {
+            val validated = repoPin.pushOneDeltaFurther(oldFoundPinLogical,newPinLogical)
+            if (!validated) {
+                val faultyPin = PinRemoveInquiry(
+                    pinLogicalId = newPinLogical.pinLogicalId,
+                    reachedDB = false,
+                )
+                _mapStateRW.update { current ->
+                    current.copy(
+                        pinRemoveInquiries = current.pinRemoveInquiries + faultyPin
+                    )
+                }
+            }
+        }
+        // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
+
+        //#999 return NEW pin LOGICAL to visual/physical
+        return newPinLogical
+    }
+
+    private fun pushNewPinFromTop(incomingPinLogical: PinLogical) {
         _mapStateRW.update { current ->
             current.copy(
                 pins = current.pins + incomingPinLogical,
@@ -212,8 +272,22 @@ class StateMapViewModel @Inject constructor(
             )
         }
     }
+    private fun updatePinFromTop(incomingPinLogical: PinLogical) {
+        _mapStateRW.update { current ->
+            current.copy(
+                pins = current.pins.mapTo(mutableSetOf()) { pin ->
+                    if (pin.pinLogicalId == incomingPinLogical.pinLogicalId) {
+                        incomingPinLogical // replace with updated version
+                    } else {
+                        pin // keep existing
+                    }
+                },
+                pinUpdateInquiries = current.pinUpdateInquiries + incomingPinLogical,
+            )
+        }
+    }
 
-    // AVAILABLE METHODS
+    // 🧩🧩🧩 AVAILABLE METHODS
     fun updateViewPort(incomingViewPort: ViewPort) { // DEBOUNCING FUNC
         //#1 - RAM FLUSH - QUICKER!
         jobViewPortStateHotUpdate?.cancel()
@@ -231,28 +305,22 @@ class StateMapViewModel @Inject constructor(
         }
     }
     fun constructAndPushPinQuick(geoPoint: GeoPoint) =
-        pushOnePinLogicalToModelReaction(PinUI(geoPoint))
+        pushNewPinFromBottom(PinUI(geoPoint))
     fun constructAndPushPinFull(pinUI: PinUI) =
-        pushOnePinLogicalToModelReaction(pinUI)
-
-    fun replaceInvalidPinIds(incomingInquiries: Set<PinRemoveInquiry>, /*incomingReallyRemoved: Set<Int>*/) {
+        pushNewPinFromBottom(pinUI)
+    fun replaceInvalidPinIds(incomingInquiries: Set<PinRemoveInquiry>) { //TODO - REDO WITH SUBTRACTING!!!!
         _mapStateRW.update { current ->
             current.copy(
                 pinRemoveInquiries = incomingInquiries,
             )
         }
     }
-
-//    fun subtractFromAllPins(incomingInvalidPinsIds: Set<Int>) {
-//        _mapStateRW.update { current ->
-//            current.copy(
-////                pins = current.pins.filterNot { it.pinLogicalId in incomingInvalidPinsIds }
-//                pins = current.pins - { }
-//            )
-//        }
-//    }
-
-    fun subtractFromAllPins(incomingInvalidPinIds: Set<Int>) {
+    fun replacePins(incomingPins: Set<PinLogical>) {
+        _mapStateRW.update { current ->
+            current.copy(pins = incomingPins)
+        }
+    }
+    fun subtractFromPins(incomingInvalidPinIds: Set<Int>) {
         _mapStateRW.update { current ->
             current.copy(
                 pins = current.pins.filterTo(mutableSetOf()) {
@@ -261,14 +329,6 @@ class StateMapViewModel @Inject constructor(
             )
         }
     }
-
-    // from cold and bulk, thats the idea for this one for now.
-    fun replaceAllPins(incomingPins: Set<PinLogical>) {
-        _mapStateRW.update { current ->
-            current.copy(pins = incomingPins)
-        }
-    }
-
     fun subtractFromRenderInquiries(incomingRenderedPins: Set<PinLogical>) {
         _mapStateRW.update { current ->
             current.copy(
@@ -276,6 +336,14 @@ class StateMapViewModel @Inject constructor(
             )
         }
     }
+    fun subtractFromUpdateInquiries(incomingUpdatedPins: Set<PinLogical>) {
+        _mapStateRW.update { current ->
+            current.copy(
+                pinUpdateInquiries = current.pinUpdateInquiries - incomingUpdatedPins
+            )
+        }
+    }
+    // 🧩🧩🧩 AVAILABLE METHODS
     // ➡️➡️➡️ INTERACTIVE
 }
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
@@ -294,13 +362,22 @@ class StateMapViewModel @Inject constructor(
 fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     val stateOfModel by viewModel.mapStateR.collectAsState()
     var showDialog by remember { mutableStateOf(false) }
-    var dialogGeoPoint by remember { mutableStateOf<GeoPoint?>(null) }
-    var dialogContinuation by remember { mutableStateOf<Continuation<PinUI>?>(null) }
+    var dialogGeoPoint by remember { mutableStateOf<GeoPoint?>(null) } // thats to teleport geopoint to the CREATION dialog! SCREENMAP -> MODAL
+    var dialogPinUI by remember { mutableStateOf<PinUI?>(null) } // thats to teleport geopoint to the UPDATE dialog!        SCREENMAP -> MODAL
+    var dialogContinuation by remember { mutableStateOf<Continuation<PinUI>?>(null) }           // thats our teleport       MODAL -> SCREENMAP
 
     suspend fun showPinCreationModal(geoPoint: GeoPoint): PinUI = suspendCoroutine { cont ->
         showDialog = true
         dialogGeoPoint = geoPoint
+        dialogPinUI = null
         dialogContinuation = cont  // ← saves the waiting coroutine
+    }
+
+    suspend fun showPinUpdateModal(pinUI: PinUI): PinUI = suspendCoroutine { cont ->
+        showDialog = true
+        dialogGeoPoint = null
+        dialogPinUI = pinUI
+        dialogContinuation = cont
     }
 
     val ctx = LocalContext.current
@@ -316,7 +393,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             },
             onMapReadyInitialPinsCallback = {
                 val coldPins = viewModel.repoPin.getAllPins()
-                viewModel.replaceAllPins(coldPins)
+                viewModel.replacePins(coldPins)
                 coldPins            // ◀️◀️◀️ and return back... yeah
             },
             onTapShortCallback = { context, geoPoint,  ->
@@ -328,10 +405,15 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 val newPinUI = showPinCreationModal(geoPoint)  // 🛑🛑🛑  --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type 🛑🛑🛑
                 viewModel.constructAndPushPinFull(newPinUI)  // ◀️◀️◀️ and return back... yeah
             },
-            onPinClick = { context ->
-//                viewModel.repoPin.portalToMesh.sendToPortal("TEST_MESSAGE_OVER_LORA".toByteArray())
-                Toast.makeText(ctx, "Emitted message", Toast.LENGTH_SHORT).show()
-                // <HERE PIN CLICK CALLBACK IMPLEMENTATION>  // ◀️◀️◀️ and return back... yeah
+            onPinClick = { context, pinLogicalId ->
+
+                stateOfModel.pins.find { it.pinLogicalId == pinLogicalId }?.let { foundPin ->
+                    val updatedPinUI = showPinUpdateModal(foundPin.pinPhysProps)    // 🛑🛑🛑  --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type 🛑🛑🛑
+                    viewModel.updatePinFromBottom(foundPin, updatedPinUI) // ◀️◀️◀️ and return back... yeah
+                } ?: run {
+                    // NO PIN FOUND!!! manual sync failed . . .  - trigger GC or trust our pipelines? return null either way
+                    null                                    // ◀️◀️◀️ and return back... yeah
+                }
             }
         )
     }
@@ -372,15 +454,13 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             val wereReallyRemovedIds = invalidIds - couldNotRemoveIds
 
             //#4 substract MVU pins with what was REALLY REMOVED FROM ROOM + PHYSICAL
-            viewModel.subtractFromAllPins(wereReallyRemovedIds)
+            viewModel.subtractFromPins(wereReallyRemovedIds)
 
             //#5 replace all pins in pinRemoveInquiries on what WASNT REMOVED (if empty - okay)
             viewModel.replaceInvalidPinIds(couldNotRemoveObj)
         }
 //        Toast.makeText(ctx, "GC", Toast.LENGTH_SHORT).show() //TODO GC toast
     }
-
-
     // ♻️♻️♻️ TIMESTAMP INVALIDATOR ♻️♻️♻️
     LaunchedEffect(Unit) {
         while(true) {
@@ -410,8 +490,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
 //            Toast.makeText(ctx, "INVALIDATOR $nowTimestamp", Toast.LENGTH_SHORT).show() //TODO: invalidator TOAST
         }
     }
-
-    LaunchedEffect(stateOfModel.pinRenderInquiries) {
+    LaunchedEffect(stateOfModel.pinRenderInquiries) { // RENDER!
 
         if (stateOfModel.pinRenderInquiries.isNotEmpty()) {
             val pinRenderInquiriesSnapshot = stateOfModel.pinRenderInquiries // SNAPSHOT OF THE STATE!
@@ -422,15 +501,17 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         }
 
     }
+    LaunchedEffect(stateOfModel.pinUpdateInquiries) { // RE-RENDER!
 
-//    LaunchedEffect(stateOfModel.pinRenderInquiries) {
-//        if (stateOfModel.pinRenderInquiries.isNotEmpty()) {
-//            val snapshot = stateOfModel.pinRenderInquiries
-//            osmdroidManager.pushManyPinsIntoPhysicalView(snapshot)
-//            viewModel.subtractFromRenderInquiries(snapshot)
-//        }
-//    }
+        if (stateOfModel.pinUpdateInquiries.isNotEmpty()) {
+            val pinUpdateInquiriesSnapshot = stateOfModel.pinUpdateInquiries // SNAPSHOT OF THE STATE!
+            osmdroidManager.updateManyPinsInsidePhysicalView(pinUpdateInquiriesSnapshot)// RE-RENDER!
+            viewModel.subtractFromUpdateInquiries(pinUpdateInquiriesSnapshot) // SUBTRACT SNAPSHOT FROM CURRENT STATE!
 
+            Toast.makeText(ctx, "LE RADIO -> BOTTOM UPDATE!!!", Toast.LENGTH_SHORT).show()
+        }
+
+    }
     // 🎣🎣🎣 EFFECTS BLOCK 🎣🎣🎣
 
     AndroidView<MapView>(
@@ -459,33 +540,46 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             Text("${stateOfModel.pinRemoveInquiries}", fontSize = 15.sp)
             Text("${stateOfModel.pinRenderInquiries}", fontSize = 15.sp)
             Text("${stateOfModel.pins}", fontSize = 8.sp)
-//            Text("Center: ${viewModel.uiState.mapCenter.latitude}, ${viewModel.uiState.mapCenter.longitude}")
-//            Column {
-//                Text("Messages: ${stateOfModel.incomingMessages.size}")
-//                stateOfModel.incomingMessages.takeLast(3).forEach { msg ->
-//                    Text("📨 $msg", fontSize = 12.sp)
-//                }
-//            }
-
         }
     } // Box end
 
     // ON RECOMPOSE + showDialog == true - MODAL APPEARS
-    if (showDialog && dialogGeoPoint != null) {
-        PinCreationDialog(
-            geoPoint = dialogGeoPoint!!,
-            onConfirm = { pinUI ->
-                showDialog = false
-                dialogContinuation?.resume(pinUI)
-                dialogContinuation = null
-            },
-            onDismiss = {
-                showDialog = false
-                dialogContinuation?.resume(PinUI(geoPoint = dialogGeoPoint!!))
-                dialogContinuation = null
+    if (showDialog) {
+        when {
+            dialogGeoPoint != null -> {
+                PinEditDialog(
+                    geoPoint = dialogGeoPoint!!,
+                    existingPinUI = null,
+                    onConfirm = { pinUI ->
+                        showDialog = false
+                        dialogContinuation?.resume(pinUI)
+                        dialogContinuation = null
+                    },
+                    onDismiss = {
+                        showDialog = false
+                        dialogContinuation?.resume(PinUI(geoPoint = dialogGeoPoint!!))
+                        dialogContinuation = null
+                    }
+                )
             }
-        )
-    } // if end
+            dialogPinUI != null -> {
+                PinEditDialog(
+                    geoPoint = null,
+                    existingPinUI = dialogPinUI,
+                    onConfirm = { pinUI ->
+                        showDialog = false
+                        dialogContinuation?.resume(pinUI)
+                        dialogContinuation = null
+                    },
+                    onDismiss = {
+                        showDialog = false
+                        dialogContinuation?.resume(dialogPinUI!!)  // return ORIGNAL??? on dismiss
+                        dialogContinuation = null
+                    }
+                )
+            }
+        }
+    }
 
 } // ScreenMap end
 

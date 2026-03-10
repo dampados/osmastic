@@ -1,6 +1,7 @@
 package com.example.osmastic
 
 import android.content.Context
+import android.widget.Toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -23,7 +24,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
                       private val onMapReadyInitialPinsCallback: suspend () -> Set<PinLogical>,
                       private val onTapShortCallback: suspend (Context, GeoPoint) -> PinLogical, // SHORT TAPS REACTION CALLBACK <- a logical pin
                       private val onTapLongCallback: suspend (Context, GeoPoint) -> PinLogical, //  LONG TAPS
-                      private val onPinClick: suspend (Context) -> Unit
+                      private val onPinClick: suspend (Context, Int) -> PinLogical?,             // Pin SHORT clicks!
 ) {
 
     // TODO: GLOBAL - ADD SHARED COROUTINE SCOPE! THESE Dispatchers.Main - MONSTROUS
@@ -62,7 +63,6 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
                         mapZoom = this@apply.zoomLevelDouble,
                         mapBearing = this@apply.mapOrientation,
                     )
-//                    viewModel.updateMapPosition(newState)
                     onMapMovedCallback(newViewPort)
                     return false
                 }
@@ -119,7 +119,13 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
             setInfoWindow(null)
             setOnMarkerClickListener { _, _ ->
                 CoroutineScope(Dispatchers.Main).launch {
-                    onPinClick(appContext)
+                    onPinClick(appContext, pinLogicalId)?.let { pinLogical ->
+                        updateOnePinInsidePhysicalView(pinLogical)
+                    } // if null, DO NOTHING! rare case, states sync screwed up!
+                        ?: run {
+                            Toast.makeText(appContext, "AAAAAAAAAAAAAAAAA Pin not found in state", Toast.LENGTH_SHORT).show()
+                        }
+
                 }
                 true
             }
@@ -127,6 +133,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
     }
 
     // 🎊🎊🎊 FUN SECTION 🎊🎊🎊
+    // TODO refactor: combine many and one to singel funcs to shrink redundancy!
     fun getMapView(): MapView = mapView        // 🪃🪃🪃  Factory calls this 🪃🪃🪃
     fun setViewport(incomingViewPort: ViewPort) {
         mapView.controller.animateTo(
@@ -137,16 +144,15 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
 //            0  // 0ms = instant
         )
     }
-
     fun pushOnePinIntoPhysicalView(incomingPin: PinLogical) {
         val marker = constructMarkerFromLogicalPin(incomingPin)
         mapView.overlays.add(marker)
         mapView.invalidate()
     }
-    fun pushManyPinsIntoPhysicalView(incomingPins: Set<PinLogical>) {
-        if (incomingPins.isEmpty()) return
+    fun pushManyPinsIntoPhysicalView(incomingUpdatePins: Set<PinLogical>) {
+        if (incomingUpdatePins.isEmpty()) return
 
-        val markers = incomingPins.map { incomingPin -> constructMarkerFromLogicalPin(incomingPin) }
+        val markers = incomingUpdatePins.map { incomingPin -> constructMarkerFromLogicalPin(incomingPin) }
         mapView.overlays.addAll(markers)
         // No exception handling above NEEDED because:
         // - constructMarkerFromLogicalPin always returns a valid marker (no external resources)
@@ -175,6 +181,21 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
         // Return what we COULDNT remove (not yet born)
         return cannotRemove
     }
+
+    fun updateOnePinInsidePhysicalView(incomingUpdatePin: PinLogical) {
+        val idsToUpdate: Set<Int> = setOf(incomingUpdatePin.pinLogicalId)
+        doGarbageCollect(idsToUpdate) // 100% bc we CLICK at the pin!
+        pushOnePinIntoPhysicalView(incomingUpdatePin)
+    }
+    fun updateManyPinsInsidePhysicalView(incomingPins: Set<PinLogical>) {
+        //#0 prep data
+        val idsToUpdate: Set<Int> = incomingPins.mapTo(mutableSetOf()) { it.pinLogicalId }
+        //#1 GC
+        doGarbageCollect(idsToUpdate) // at this point WE ARE 100% SURE PINS WILL BE REMOVE IN ONE GO. bc all those were found in COLD.
+        //#2 PUSH MANY
+        pushManyPinsIntoPhysicalView(incomingPins)
+    }
+
     // 🎊🎊🎊 FUN SECTION 🎊🎊🎊
 }
 // ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭

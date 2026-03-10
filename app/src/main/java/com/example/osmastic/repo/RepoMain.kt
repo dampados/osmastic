@@ -68,7 +68,6 @@ class RepoPin(
 
         val defaultPin = PinLogical(
             pinLogicalId = 1,
-//            editorHash = byteArrayOf(),
             editorHash = "myass",
             pinPhysProps = PinUI(
                 geoPoint = GeoPoint(
@@ -97,15 +96,39 @@ class RepoPin(
     private fun prepCreationProtobuf(incomingPinLogical: PinLogical): PinMessage {
         val pinMessBuilder = stripDefaults(PinMessage.newBuilder(), incomingPinLogical)
         pinMessBuilder.setPinLogicalId(incomingPinLogical.pinLogicalId)
-//        pinMessBuilder.setEditorHash(ByteString.copyFrom(incomingPinLogical.editorHash))
-        pinMessBuilder.setEditorHash(incomingPinLogical.editorHash) //TODO uncomment! after generation KSP PROTO
+        pinMessBuilder.setEditorHash(incomingPinLogical.editorHash)
         pinMessBuilder.setLat(incomingPinLogical.pinPhysProps.geoPoint.latitude.toFloat())
         pinMessBuilder.setLon(incomingPinLogical.pinPhysProps.geoPoint.longitude.toFloat())
 
         return pinMessBuilder.build()
     }
+    private fun stripUnchanged(builderProtobuf: PinMessage.Builder, oldPinLogical: PinLogical, newPinLogical: PinLogical): PinMessage.Builder {
 
-    //TODO deserialize NO COORDINATES CASE YET!
+        if (newPinLogical.pinPhysProps.geoPoint != oldPinLogical.pinPhysProps.geoPoint) {
+            builderProtobuf.setLat(newPinLogical.pinPhysProps.geoPoint.latitude.toFloat())
+            builderProtobuf.setLon(newPinLogical.pinPhysProps.geoPoint.longitude.toFloat())
+        }
+
+        if (newPinLogical.pinPhysProps.rotationByte != oldPinLogical.pinPhysProps.rotationByte)
+            builderProtobuf.setRotationByte(newPinLogical.pinPhysProps.rotationByte!!)
+        if (newPinLogical.pinPhysProps.iconUnicode != oldPinLogical.pinPhysProps.iconUnicode)
+            builderProtobuf.setIconUnicode(newPinLogical.pinPhysProps.iconUnicode)
+        if (newPinLogical.pinPhysProps.label != oldPinLogical.pinPhysProps.label)
+            builderProtobuf.setLabel(newPinLogical.pinPhysProps.label)
+        if (newPinLogical.pinPhysProps.isHiddenBeforeTTL != oldPinLogical.pinPhysProps.isHiddenBeforeTTL)
+            builderProtobuf.setIsHiddenBeforeTtl(newPinLogical.pinPhysProps.isHiddenBeforeTTL)
+
+
+        return builderProtobuf
+    }
+    private fun prepUpdateProtobuf(oldPinLogical: PinLogical, newPinLogical: PinLogical): PinMessage {
+        val pinDeltaBuilder = stripUnchanged(PinMessage.newBuilder(), oldPinLogical, newPinLogical)
+        pinDeltaBuilder.setPinLogicalId(newPinLogical.pinLogicalId)
+        pinDeltaBuilder.setEditorHash(newPinLogical.editorHash)
+        pinDeltaBuilder.setLamportEpoch(newPinLogical.lamportEpoch)
+
+        return pinDeltaBuilder.build()
+    }
     private fun buildLogicalFromMessage(pinMessage: PinMessage): PinLogical {
 
         //#1 introduce football teams:
@@ -173,7 +196,7 @@ class RepoPin(
         when (val result = validatePin(incomingPinLogical)) {
             is ValidationResult.Valid -> {
                 // TODO: ОТПРАВКА ТУТА
-                val logicalIdInternal = dao.insert(convertToEntity(incomingPinLogical))
+                val pinLogicalId = dao.insert(convertToEntity(incomingPinLogical))
                 val meshMessageId = portalToMesh.serviceConnectionWrapper.sendToTheEther(prepCreationProtobuf(incomingPinLogical).toByteArray())
                 Toast.makeText(fuckingContext, "SIDE EFFECT, logID: ${incomingPinLogical.pinLogicalId}", Toast.LENGTH_SHORT).show()
                 return true
@@ -181,11 +204,41 @@ class RepoPin(
             is ValidationResult.Invalid -> {
                 // Log errors, emit rollback, etc
                 Toast.makeText(fuckingContext, "ROLLBACK, logID: ${incomingPinLogical.pinLogicalId}", Toast.LENGTH_SHORT).show()
-
                 return false
             }
         }
     }
+    suspend fun pushOneDeltaFurther(incomOldPinLogical: PinLogical, incomUpdPinLogical: PinLogical): Boolean {
+
+        when (val result = validatePin(incomUpdPinLogical)) {
+            is ValidationResult.Valid -> {
+                // <PUSH TO ROOM>
+                // #1 Get existing entity with its internalId
+                val existingEntity = dao.getById(incomUpdPinLogical.pinLogicalId)
+                    ?: return false  // SIMPLE ROLLBACK IF STATE SYNC SCREWED!
+                // #2 Convert updated pin to entity
+                val updatedEntity = convertToEntity(incomUpdPinLogical)
+                // #3 Preserve the primary key
+                val entityToUpdate = updatedEntity.copy(
+                    internalId = existingEntity.internalId
+                )
+                // #4 Update using Room's @Update
+                dao.update(entityToUpdate)
+
+                // <construct DELTA -> PUSH to radio!>
+                val meshMessageId = portalToMesh.serviceConnectionWrapper.sendToTheEther(prepUpdateProtobuf(incomOldPinLogical,incomUpdPinLogical).toByteArray())
+                Toast.makeText(fuckingContext, "SIDE EFFECT UPDATE!", Toast.LENGTH_SHORT).show()
+                return true
+            }
+            is ValidationResult.Invalid -> {
+                // Log errors, emit rollback, etc
+                Toast.makeText(fuckingContext, "ROLLBACK, logID: ${incomUpdPinLogical.pinLogicalId}", Toast.LENGTH_SHORT).show()
+                return false
+            }
+        }
+
+    }
+
     suspend fun getAllPins(): Set<PinLogical> {
         return dao.getAll().map { fetchedEntity ->
             PinLogical(
@@ -210,7 +263,7 @@ class RepoPin(
     suspend fun handleIncomingPinMessage(parsedRawPinMessage: PinMessage) {
         // #0 DECISION
         if (parsedRawPinMessage.hasLamportEpoch()) {
-            // TODO implement update
+
               if (dao.pinExists(parsedRawPinMessage.pinLogicalId)) {
 
                   val storedPinEntity = dao.getById(parsedRawPinMessage.pinLogicalId)!! // !! bc i got checks OUTSIDE, at this point im sure pin exists!
@@ -218,15 +271,28 @@ class RepoPin(
                   val newPinLogical = newPinLogicalHalfBuilt.copy(
                       pinPhysProps = newPinLogicalHalfBuilt.pinPhysProps.copy(
                           geoPoint = GeoPoint(
-                              storedPinEntity.latitude,
-                              storedPinEntity.longitude
+                              storedPinEntity.latitude.toDouble() / 1e6,
+                              storedPinEntity.longitude.toDouble() / 1e6, //TODO float/double PROBLEMS, remove after testing
                           )
-                      )
+                      ),
+                      expirationTimestamp = storedPinEntity.expirationTimestamp // TODO TTL timestampt after updates PROBLEM solved? test!
                   )
 
-                  if (newPinLogical.lamportEpoch > storedPinEntity.lamportEpoch) {
+                  if (newPinLogical.lamportEpoch > storedPinEntity.lamportEpoch) { // TODO бля, второй час ночи, попытка починить ХОЛОД
+                      // #1 Get existing entity with its internalId
+                      val existingEntity = dao.getById(newPinLogical.pinLogicalId)
+                            // SIMPLE ROLLBACK IF STATE SYNC SCREWED!
+                      // #2 Convert updated pin to entity
+                      val updatedEntity = convertToEntity(newPinLogical)
+                      // #3 Preserve the primary key
+                      val entityToUpdate = updatedEntity.copy(
+                          internalId = existingEntity!!.internalId
+                      )
+                      // #4 Update using Room's @Update
+                      dao.update(entityToUpdate)
 
                       onHandledPinUpdateRequestCallback?.invoke(newPinLogical)
+
 
                   } else if (newPinLogical.lamportEpoch < storedPinEntity.lamportEpoch) {
                       // drop! too logically old //TODO implement HISTORY (so no information gets dropped ever) 3
