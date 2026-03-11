@@ -13,7 +13,7 @@ data class Pin(
     val latitude: Int,  // 32 bytes full, but shrinked to 24 for meshtastic
     val longitude: Int, // 32 bytes full, but shrinked to 24 for meshtastic
     val iconUnicode: String = "📍", // 4 byte max
-    val label: String? = null, // max 41 byte, first byte - LENGTH
+    val label: String = "", // max 41 byte, first byte - LENGTH
     val rotationByte: Int? = null, // lol 1 bte rotation sticked to the map body
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
     val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL

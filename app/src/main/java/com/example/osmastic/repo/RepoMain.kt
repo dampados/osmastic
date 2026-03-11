@@ -113,8 +113,11 @@ class RepoPin(
             builderProtobuf.setRotationByte(newPinLogical.pinPhysProps.rotationByte!!)
         if (newPinLogical.pinPhysProps.iconUnicode != oldPinLogical.pinPhysProps.iconUnicode)
             builderProtobuf.setIconUnicode(newPinLogical.pinPhysProps.iconUnicode)
-        if (newPinLogical.pinPhysProps.label != oldPinLogical.pinPhysProps.label)
+
+        if (newPinLogical.pinPhysProps.label != oldPinLogical.pinPhysProps.label) {
             builderProtobuf.setLabel(newPinLogical.pinPhysProps.label)
+        } // TODO TEST LABEL !!! erasing
+
         if (newPinLogical.pinPhysProps.isHiddenBeforeTTL != oldPinLogical.pinPhysProps.isHiddenBeforeTTL)
             builderProtobuf.setIsHiddenBeforeTtl(newPinLogical.pinPhysProps.isHiddenBeforeTTL)
 
@@ -129,7 +132,7 @@ class RepoPin(
 
         return pinDeltaBuilder.build()
     }
-    private fun buildLogicalFromMessage(pinMessage: PinMessage): PinLogical {
+    private fun buildBasedOnDefaultsFromMessage(pinMessage: PinMessage): PinLogical {
 
         //#1 introduce football teams:
         val defaultPin = PinLogical(
@@ -169,7 +172,6 @@ class RepoPin(
         return PinLogical(
             pinLogicalId = _pinLogicalId,
             editorHash = _editorHash,
-//            editorHash = "myass",
             lamportEpoch = _lamportEpoch,
             expirationTimestamp = _expirationTimestamp,
             pinPhysProps = PinUI(
@@ -185,6 +187,45 @@ class RepoPin(
             )
         )
 
+    }
+
+    private fun buildBasedOnOldPinFromMessage(foundStoredPin: Pin, pinMessage: PinMessage): PinLogical {
+
+        //#2 poshla ebka
+        val _pinLogicalId = pinMessage.pinLogicalId
+        val _editorHash = pinMessage.editorHash
+
+        // TODO: what IF incoming built LESSER, what if none? why here?
+        val _lamportEpoch = if (pinMessage.hasLamportEpoch()) pinMessage.lamportEpoch else foundStoredPin.lamportEpoch
+
+        val _expirationTimestamp = foundStoredPin.expirationTimestamp
+
+        val _lat = if (pinMessage.hasLat()) pinMessage.lat else foundStoredPin.latitude
+        val _lon = if (pinMessage.hasLon()) pinMessage.lon else foundStoredPin.longitude
+
+        val _rotationByte = if (pinMessage.hasRotationByte()) pinMessage.rotationByte else foundStoredPin.rotationByte
+        val _iconUnicode = if (pinMessage.hasIconUnicode()) pinMessage.iconUnicode else foundStoredPin.iconUnicode
+        val _label = if (pinMessage.hasLabel()) pinMessage.label else foundStoredPin.label
+        val _isHiddenBeforeTTL = if (pinMessage.hasIsHiddenBeforeTtl()) pinMessage.isHiddenBeforeTtl else foundStoredPin.isHiddenBeforeTTL
+
+        //#3 construct and return
+        return PinLogical(
+            pinLogicalId = _pinLogicalId,
+            editorHash = _editorHash,
+            lamportEpoch = _lamportEpoch, //todo lol, forgot to inject lamport?
+            expirationTimestamp = _expirationTimestamp,
+            pinPhysProps = PinUI(
+                geoPoint = GeoPoint(
+                    _lat.toDouble() / 1e6,
+                    _lon.toDouble()/ 1e6,
+                ),
+                rotationByte = _rotationByte,
+                iconUnicode = _iconUnicode,
+                label = _label,
+                isHiddenBeforeTTL = _isHiddenBeforeTTL,
+//                hoursTTL = _hoursTTL //defautl 6
+            )
+        )
     }
 
 // 🛟🛟🛟 PRIVATE HELPERS 🛟🛟🛟
@@ -260,6 +301,8 @@ class RepoPin(
     suspend fun deleteBulkByLogicalIds(pinLogicalIds: Set<Int>): Int {
         return dao.deleteBulkByLogicalIds(pinLogicalIds)
     }
+
+
     suspend fun handleIncomingPinMessage(parsedRawPinMessage: PinMessage) {
         // #0 DECISION
         if (parsedRawPinMessage.hasLamportEpoch()) {
@@ -267,31 +310,22 @@ class RepoPin(
               if (dao.pinExists(parsedRawPinMessage.pinLogicalId)) {
 
                   val storedPinEntity = dao.getById(parsedRawPinMessage.pinLogicalId)!! // !! bc i got checks OUTSIDE, at this point im sure pin exists!
-                  val newPinLogicalHalfBuilt = buildLogicalFromMessage(parsedRawPinMessage)
-                  val newPinLogical = newPinLogicalHalfBuilt.copy(
-                      pinPhysProps = newPinLogicalHalfBuilt.pinPhysProps.copy(
-                          geoPoint = GeoPoint(
-                              storedPinEntity.latitude.toDouble() / 1e6,
-                              storedPinEntity.longitude.toDouble() / 1e6, //TODO float/double PROBLEMS, remove after testing
-                          )
-                      ),
-                      expirationTimestamp = storedPinEntity.expirationTimestamp // TODO TTL timestampt after updates PROBLEM solved? test!
-                  )
+
+//                  val newPinLogicalHalfBuilt = buildBasedOnDefaultsFromMessage(parsedRawPinMessage) // TODO: needs PROPER stored data restoration!!! another build func!
+                  val newPinLogical = buildBasedOnOldPinFromMessage(storedPinEntity, parsedRawPinMessage)
+
+//                  Toast.makeText(fuckingContext, "$newPinLogical", Toast.LENGTH_SHORT).show()
 
                   if (newPinLogical.lamportEpoch > storedPinEntity.lamportEpoch) { // TODO бля, второй час ночи, попытка починить ХОЛОД
-                      // #1 Get existing entity with its internalId
-                      val existingEntity = dao.getById(newPinLogical.pinLogicalId)
-                            // SIMPLE ROLLBACK IF STATE SYNC SCREWED!
-                      // #2 Convert updated pin to entity
+
+                      val existingEntity = dao.getById(newPinLogical.pinLogicalId)          // side effect 1!
                       val updatedEntity = convertToEntity(newPinLogical)
-                      // #3 Preserve the primary key
                       val entityToUpdate = updatedEntity.copy(
                           internalId = existingEntity!!.internalId
                       )
-                      // #4 Update using Room's @Update
                       dao.update(entityToUpdate)
 
-                      onHandledPinUpdateRequestCallback?.invoke(newPinLogical)
+                      onHandledPinUpdateRequestCallback?.invoke(newPinLogical) // side effect 2!
 
 
                   } else if (newPinLogical.lamportEpoch < storedPinEntity.lamportEpoch) {
@@ -309,13 +343,14 @@ class RepoPin(
             // pure creation CHECK:
             if (parsedRawPinMessage.hasLat() && parsedRawPinMessage.hasLon()) {
 
-                val builtPinLogical = buildLogicalFromMessage(parsedRawPinMessage)
+                val builtPinLogical = buildBasedOnDefaultsFromMessage(parsedRawPinMessage)
+
                 when (val result = validatePin(builtPinLogical)) {
                     is ValidationResult.Valid -> {
                         val logicalIdInternal = dao.insert(convertToEntity(builtPinLogical))
                         onHandledPinCreationRequestCallback?.invoke(builtPinLogical)
                     }
-                    is ValidationResult.Invalid -> { /* JUST DROP? */ }
+                    is ValidationResult.Invalid -> { /* DROP? */ }
                 }
             } else {
                 //                  <drop! for now its invalid garbage for us!> // TODO implement HISTORY (so no information gets dropped ever) 2

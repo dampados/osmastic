@@ -104,7 +104,8 @@ data class PinUI(
     val geoPoint: GeoPoint,
     val rotationByte: Int? = null,
     val iconUnicode: String = "📍",
-    val label: String? = null,
+//    val label: String? = null, // STOP BEING NULL FOR THE PROTOBUF SAKE!
+    val label: String = "",
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
     val hoursTTL: Int = 6, // SIX HOURS DEFAULT life time
 )

@@ -108,11 +108,20 @@ fun PinEditDialog(
                             label = { Text("Emoji") }
                         )
                     }
+//                    2 -> {
+//                        OutlinedTextField(
+//                            value = pinUnderConstruction.label ?: "",
+//                            onValueChange = {
+//                                pinUnderConstruction = pinUnderConstruction.copy(label = it.ifEmpty { null })
+//                            },
+//                            label = { Text("Label") }
+//                        )
+//                    }
                     2 -> {
                         OutlinedTextField(
-                            value = pinUnderConstruction.label ?: "",
+                            value = pinUnderConstruction.label,
                             onValueChange = {
-                                pinUnderConstruction = pinUnderConstruction.copy(label = it.ifEmpty { null })
+                                pinUnderConstruction = pinUnderConstruction.copy(label = it)
                             },
                             label = { Text("Label") }
                         )

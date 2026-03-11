@@ -108,7 +108,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
         return LabeledMarker(
             mapView,
             pinLogicalId = pin.pinLogicalId,
-            label = pin.pinPhysProps.label ?: "",
+            label = pin.pinPhysProps.label,
             rotation = rotationDegrees
         ).apply {
             position = pin.pinPhysProps.geoPoint
