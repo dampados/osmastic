@@ -92,9 +92,7 @@ data class PinRemoveInquiry(
     val pinLogicalId: Int,
     val reachedDB: Boolean,
 )
-//data class PinUpdateInquiry(
-//    val
-//)
+
 data class ViewPort(
     val mapCenter: GeoPoint, // default loc, SPB
     val mapZoom: Double, // obvious
@@ -169,17 +167,17 @@ class StateMapViewModel @Inject constructor(
         val SECOND = 1  // todo UGLY DEBUG remove later
 
         //#0 prep data
-        val editorHashInt = SecureRandom().nextInt(1 shl 24)
         val calculatedExpTimestamp = if (incomingPinUI.hoursTTL == 0) {
             0L  // eternal
         } else {
             System.currentTimeMillis() + (incomingPinUI.hoursTTL * SECOND * 1000)
         }
+        val fetchedEditorHash = repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()?.takeLast(5) ?: "local"
 
         //#1 construct a new pin
         val newPinLogical = PinLogical(
             pinLogicalId = SecureRandom().nextInt(1 shl 24),
-            editorHash = "myass",
+            editorHash = fetchedEditorHash,
             expirationTimestamp = calculatedExpTimestamp,
             pinPhysProps = incomingPinUI
         )
@@ -220,10 +218,12 @@ class StateMapViewModel @Inject constructor(
         //#999 return NEW pin LOGICAL to visual/physical
 
         //#0 prep data
+        val fetchedEditorHash = repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()?.takeLast(5) ?: "local"
+
         val newPinLogical = PinLogical(
             pinLogicalId = oldFoundPinLogical.pinLogicalId,
             lamportEpoch = oldFoundPinLogical.lamportEpoch + 1,
-            editorHash = oldFoundPinLogical.editorHash,
+            editorHash = fetchedEditorHash, //oldFoundPinLogical.editorHash,
             expirationTimestamp = oldFoundPinLogical.expirationTimestamp,
             pinPhysProps = updatedPinPhysProps,
         )
@@ -398,8 +398,10 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 coldPins            // ◀️◀️◀️ and return back... yeah
             },
             onTapShortCallback = { context, geoPoint,  ->
-//                Toast.makeText(context, "SHORT: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
+//                val generatedPin = viewModel.constructAndPushPinQuick(geoPoint)
+//                Toast.makeText(context, "SHORT: ${generatedPin.editorHash}", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
                 viewModel.constructAndPushPinQuick(geoPoint) // ◀️◀️◀️ and return back... yeah
+//                generatedPin
             },
             onTapLongCallback = { context, geoPoint ->
 //                Toast.makeText(context, "LONG: ${geoPoint.latitude}, ${geoPoint.longitude}", Toast.LENGTH_SHORT).show() // TODO delete debug toasts

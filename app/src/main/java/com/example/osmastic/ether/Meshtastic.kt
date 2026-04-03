@@ -13,8 +13,6 @@ import com.example.osmastic.repo.RepoPin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import okio.ByteString.Companion.toByteString
 import org.meshtastic.core.model.NodeInfo
@@ -124,6 +122,10 @@ class MeshtasticPortal(
         // TODO: Return meshService?.nodes or meshService?.getNodes()
         return null
     }
+    suspend fun getChannelPSK(channelNumber: Int): String? {
+        return null
+    }
+
     // 🏮🏮🏮 PUBLIC API 🏮🏮🏮
 } // Main Class end
 
@@ -155,6 +157,7 @@ class ServiceConnectionWrapper(
         }
     }
 
+    //METHODS!!!
     fun bind(incomingIntent: Intent) {
         context.bindService(incomingIntent, serviceConnectionObject, Context.BIND_AUTO_CREATE)
     }
@@ -191,5 +194,9 @@ class ServiceConnectionWrapper(
             Toast.makeText(context, "${e.message}", Toast.LENGTH_LONG).show()
         }
     }
+    fun getUniqueNodeIdMark(): String? {
+        return meshService?.myId // we only need 5 utf-8 characters for CR
+    }
+    //METHODS!!!
 }
 // ↗️↗️↗️ ServiceConnection to get meshService ↗️↗️↗️ -> -> ->

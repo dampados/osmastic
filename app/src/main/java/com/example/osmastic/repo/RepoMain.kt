@@ -279,7 +279,6 @@ class RepoPin(
         }
 
     }
-
     suspend fun getAllPins(): Set<PinLogical> {
         return dao.getAll().map { fetchedEntity ->
             PinLogical(
@@ -302,7 +301,6 @@ class RepoPin(
         return dao.deleteBulkByLogicalIds(pinLogicalIds)
     }
 
-
     suspend fun handleIncomingPinMessage(parsedRawPinMessage: PinMessage) {
         // #0 DECISION
         if (parsedRawPinMessage.hasLamportEpoch()) {
@@ -311,10 +309,8 @@ class RepoPin(
 
                   val storedPinEntity = dao.getById(parsedRawPinMessage.pinLogicalId)!! // !! bc i got checks OUTSIDE, at this point im sure pin exists!
 
-//                  val newPinLogicalHalfBuilt = buildBasedOnDefaultsFromMessage(parsedRawPinMessage) // TODO: needs PROPER stored data restoration!!! another build func!
                   val newPinLogical = buildBasedOnOldPinFromMessage(storedPinEntity, parsedRawPinMessage)
 
-//                  Toast.makeText(fuckingContext, "$newPinLogical", Toast.LENGTH_SHORT).show()
 
                   if (newPinLogical.lamportEpoch > storedPinEntity.lamportEpoch) { // TODO бля, второй час ночи, попытка починить ХОЛОД
 
@@ -330,8 +326,13 @@ class RepoPin(
 
                   } else if (newPinLogical.lamportEpoch < storedPinEntity.lamportEpoch) {
                       // drop! too logically old //TODO implement HISTORY (so no information gets dropped ever) 3
-                  } else {
+                  } else if (newPinLogical.lamportEpoch == storedPinEntity.lamportEpoch) {
                       // CONFLICT! // TODO determenistic decision mkaing based on meshtastic channel PSK salt + new.editorHash vs old.editorHash
+                      if ( newPinLogical.editorHash < storedPinEntity.editorHash ) {
+                          //< do rewrite! >
+                      } else {
+                          // < do DROP! >
+                      }
                   }
 
               } else {
