@@ -15,11 +15,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import okio.ByteString.Companion.toByteString
-import org.meshtastic.core.model.NodeInfo
 import org.meshtastic.core.service.IMeshService
 import org.meshtastic.core.model.DataPacket
+import org.meshtastic.core.model.util.primaryChannel
 import org.meshtastic.proto.MeshPacket
 
+import org.meshtastic.proto.ChannelSet
 
 class MeshtasticPortal(
     private val context: Context,
@@ -114,17 +115,17 @@ class MeshtasticPortal(
 
 
     // Get connected node NAME
-    suspend fun getNodeName(): String {
-        //TODO: get freaking name
-        return ""
-    }
-    suspend fun getNodes(): List<NodeInfo>? {
-        // TODO: Return meshService?.nodes or meshService?.getNodes()
-        return null
-    }
-    suspend fun getChannelPSK(channelNumber: Int): String? {
-        return null
-    }
+//    suspend fun getNodeName(): String {
+//        //TODO: get freaking name
+//        return ""
+//    }
+//    suspend fun getNodes(): List<NodeInfo>? {
+//        // TODO: Return meshService?.nodes or meshService?.getNodes()
+//        return null
+//    }
+//    suspend fun getChannelPSK(channelNumber: Int): String? {
+//        return null
+//    }
 
     // 🏮🏮🏮 PUBLIC API 🏮🏮🏮
 } // Main Class end
@@ -195,8 +196,31 @@ class ServiceConnectionWrapper(
         }
     }
     fun getUniqueNodeIdMark(): String? {
-        return meshService?.myId // we only need 5 utf-8 characters for CR
+        return meshService?.myId // conflict resolution
     }
+    fun getSomethingPleaseMeshtasticPityMe(): String? {
+        val channelsProtobufMessageRaw = meshService?.channelSet ?: return null
+        val channelsProtobufParsed = ChannelSet.ADAPTER.decode(channelsProtobufMessageRaw)
+        val psk = channelsProtobufParsed.settings.firstOrNull()?.psk
+
+        return psk?.toByteArray()?.joinToString("") { "%02x".format(it) }
+    }
+    fun getPrimaryChannelPsk(): String {
+        val raw = meshService?.channelSet ?: return "no_psk"
+        val parsed = try {
+            ChannelSet.ADAPTER.decode(raw)
+        } catch (e: Exception) {
+            return "no_psk"
+        }
+        val pskBytes = parsed.settings.firstOrNull()?.psk?.toByteArray()
+
+        return when (pskBytes?.size) {
+            32, 16 -> pskBytes.joinToString("") { "%02x".format(it) } // Real key
+            1 -> "default_psk" // This is your "01" case
+            else -> "no_psk" // Handles null, 0 bytes, or errors
+        }
+    }
+
     //METHODS!!!
 }
 // ↗️↗️↗️ ServiceConnection to get meshService ↗️↗️↗️ -> -> ->

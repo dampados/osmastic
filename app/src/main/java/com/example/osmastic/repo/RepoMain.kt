@@ -138,7 +138,7 @@ class RepoPin(
         val defaultPin = PinLogical(
             pinLogicalId = 1,
 //            editorHash = byteArrayOf(),
-            editorHash = "myass",
+            editorHash = "mass",
             pinPhysProps = PinUI(
                 geoPoint = GeoPoint(
                     0.0,

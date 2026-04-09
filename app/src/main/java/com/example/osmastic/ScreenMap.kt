@@ -7,6 +7,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.text.TextPaint
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
@@ -93,7 +94,7 @@ data class PinRemoveInquiry(
     val reachedDB: Boolean,
 )
 
-data class ViewPort(
+data class ViewPort( // CUSTOM VIEWPORT FOR OSMD!
     val mapCenter: GeoPoint, // default loc, SPB
     val mapZoom: Double, // obvious
     val mapBearing: Float,
@@ -115,7 +116,6 @@ data class PinLogical(
     val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
     val pinPhysProps: PinUI,
 )
-
 
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
 data class StateMapModel(
@@ -146,14 +146,14 @@ class StateMapViewModel @Inject constructor(
     private var jobViewPortStateHotUpdate: Job? = null
     private var jobViewPortStateColdUpdate: Job? = null
 
-
+    // HANG CALLBACKS' IMPLEMENTATIONS here onto the repoPin instance. STUPID and BEAUTIFUL
     init {
         repoPin.onHandledPinCreationRequestCallback = { builtPinLogicalNew ->
             pushNewPinFromTop(builtPinLogicalNew)
         }
         repoPin.onHandledPinUpdateRequestCallback = { builtPinLogicalNew ->
-            updatePinFromTop(builtPinLogicalNew) //TODO NOT PUSH! find and replace MVU, FAR in DAO cold, FAR in osmdroid!
-        }                                                        // TODO logic for osm: same function, it will manage FAR on its own.
+            updatePinFromTop(builtPinLogicalNew)
+        }
     }
 
     // ➡️➡️➡️ INTERACTIVE
@@ -162,7 +162,7 @@ class StateMapViewModel @Inject constructor(
         mapPrefsManager.saveMapPos(currentViewPort)
     }
     private fun pushNewPinFromBottom(incomingPinUI: PinUI): PinLogical {
-        val HOUR = 3600
+        val HOUR = 3600 // todo default - will be a few HOURS, not seconds
         val MINUTE = 60 // todo UGLY DEBUG remove later
         val SECOND = 1  // todo UGLY DEBUG remove later
 
@@ -172,7 +172,8 @@ class StateMapViewModel @Inject constructor(
         } else {
             System.currentTimeMillis() + (incomingPinUI.hoursTTL * SECOND * 1000)
         }
-        val fetchedEditorHash = repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()?.takeLast(5) ?: "local"
+        // WHY 4 UTF-8? for 65k chance for collision. 2 bytes for teh same chance only possible via custom byte array protocol
+        val fetchedEditorHash = repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()?.takeLast(4) ?: "local"
 
         //#1 construct a new pin
         val newPinLogical = PinLogical(
@@ -217,8 +218,8 @@ class StateMapViewModel @Inject constructor(
         //#2 launch SIDE EFFECTS (repo)
         //#999 return NEW pin LOGICAL to visual/physical
 
-        //#0 prep data
-        val fetchedEditorHash = repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()?.takeLast(5) ?: "local"
+        //#0 prep data // WHY 4 UTF-8? for 65k chance for collision. 2 bytes for teh same chance only possible via custom byte array protocol
+        val fetchedEditorHash = repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()?.takeLast(4) ?: "local"
 
         val newPinLogical = PinLogical(
             pinLogicalId = oldFoundPinLogical.pinLogicalId,
@@ -400,6 +401,9 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             onTapShortCallback = { context, geoPoint,  ->
 //                val generatedPin = viewModel.constructAndPushPinQuick(geoPoint)
 //                Toast.makeText(context, "SHORT: ${generatedPin.editorHash}", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
+                val something = viewModel.repoPin.portalToMesh.serviceConnectionWrapper.getPrimaryChannelPsk() //TODO REMOVE, DEBUG
+//                Log.d("ASS", channels.toString())
+                Log.d("ASS", "ass? --- ${something}")
                 viewModel.constructAndPushPinQuick(geoPoint) // ◀️◀️◀️ and return back... yeah
 //                generatedPin
             },
