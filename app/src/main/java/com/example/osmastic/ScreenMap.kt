@@ -401,9 +401,10 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             onTapShortCallback = { context, geoPoint,  ->
 //                val generatedPin = viewModel.constructAndPushPinQuick(geoPoint)
 //                Toast.makeText(context, "SHORT: ${generatedPin.editorHash}", Toast.LENGTH_SHORT).show() // TODO delete debug toasts
-                val something = viewModel.repoPin.portalToMesh.serviceConnectionWrapper.getPrimaryChannelPsk() //TODO REMOVE, DEBUG
-//                Log.d("ASS", channels.toString())
-                Log.d("ASS", "ass? --- ${something}")
+//                val something = viewModel.repoPin.portalToMesh.serviceConnectionWrapper.getPrimaryChannelPsk() //TODO REMOVE, DEBUG
+//                val something2 = viewModel.repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()
+////                Log.d("ASS", channels.toString())
+//                Log.d("ASS", "ass? --- ${something2}")
                 viewModel.constructAndPushPinQuick(geoPoint) // ◀️◀️◀️ and return back... yeah
 //                generatedPin
             },

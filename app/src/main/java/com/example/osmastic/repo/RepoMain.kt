@@ -11,6 +11,8 @@ import org.osmdroid.util.GeoPoint
 
 import com.example.osmastic.ether.PinMessage
 
+import java.security.MessageDigest
+
 class RepoPin(
     val fuckingContext: Context,
 //    var onHandledPinCreationRequestCallback: (builtPinLogical: PinLogical) -> Unit, // todo: stop being stupid
@@ -327,11 +329,34 @@ class RepoPin(
                   } else if (newPinLogical.lamportEpoch < storedPinEntity.lamportEpoch) {
                       // drop! too logically old //TODO implement HISTORY (so no information gets dropped ever) 3
                   } else if (newPinLogical.lamportEpoch == storedPinEntity.lamportEpoch) {
+
+
+                      // #0 prep data: current primary channel PSK + stored editorMark + new editorMark
+                      val chPSK = portalToMesh.serviceConnectionWrapper.getPrimaryChannelPsk()
+                      val md5er = MessageDigest.getInstance("MD5")
+                      val newHash = md5er.digest("$chPSK$newPinLogical.editorHash".toByteArray())
+                      val oldHash = md5er.digest("$chPSK$storedPinEntity.editorHash".toByteArray())
+
+                      val newInt = newHash.take(2).joinToString("") { "%02x".format(it) }.toInt(16)
+                      val oldInt = oldHash.take(2).joinToString("") { "%02x".format(it) }.toInt(16)
+
                       // CONFLICT! // TODO determenistic decision mkaing based on meshtastic channel PSK salt + new.editorHash vs old.editorHash
-                      if ( newPinLogical.editorHash < storedPinEntity.editorHash ) {
-                          //< do rewrite! >
+                      if ( newInt < oldInt ) {
+                          //< do rewrite! > < new one wins! >
+                          val existingEntity = dao.getById(newPinLogical.pinLogicalId)          // side effect 1!
+                          val updatedEntity = convertToEntity(newPinLogical)
+                          val entityToUpdate = updatedEntity.copy(
+                              internalId = existingEntity!!.internalId
+                          )
+                          dao.update(entityToUpdate)
+
+                          onHandledPinUpdateRequestCallback?.invoke(newPinLogical) // side effect 2!
+
+                          Toast.makeText(fuckingContext, "equal lamports! but INCOMING pin won!", Toast.LENGTH_SHORT).show()
+
                       } else {
-                          // < do DROP! >
+                          // < do DROP! > < stored one wins! >
+                          Toast.makeText(fuckingContext, "equal lamports! but STORED pin won!", Toast.LENGTH_SHORT).show()
                       }
                   }
 

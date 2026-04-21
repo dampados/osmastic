@@ -198,13 +198,6 @@ class ServiceConnectionWrapper(
     fun getUniqueNodeIdMark(): String? {
         return meshService?.myId // conflict resolution
     }
-    fun getSomethingPleaseMeshtasticPityMe(): String? {
-        val channelsProtobufMessageRaw = meshService?.channelSet ?: return null
-        val channelsProtobufParsed = ChannelSet.ADAPTER.decode(channelsProtobufMessageRaw)
-        val psk = channelsProtobufParsed.settings.firstOrNull()?.psk
-
-        return psk?.toByteArray()?.joinToString("") { "%02x".format(it) }
-    }
     fun getPrimaryChannelPsk(): String {
         val raw = meshService?.channelSet ?: return "no_psk"
         val parsed = try {
