@@ -13,6 +13,8 @@ import com.example.osmastic.ether.PinMessage
 
 import java.security.MessageDigest
 
+import android.util.Log
+
 class RepoPin(
     val fuckingContext: Context,
 //    var onHandledPinCreationRequestCallback: (builtPinLogical: PinLogical) -> Unit, // todo: stop being stupid
@@ -319,7 +321,7 @@ class RepoPin(
                       val existingEntity = dao.getById(newPinLogical.pinLogicalId)          // side effect 1!
                       val updatedEntity = convertToEntity(newPinLogical)
                       val entityToUpdate = updatedEntity.copy(
-                          internalId = existingEntity!!.internalId
+                              internalId = existingEntity!!.internalId
                       )
                       dao.update(entityToUpdate)
 
@@ -340,7 +342,10 @@ class RepoPin(
                       val newInt = newHash.take(2).joinToString("") { "%02x".format(it) }.toInt(16)
                       val oldInt = oldHash.take(2).joinToString("") { "%02x".format(it) }.toInt(16)
 
-                      // CONFLICT! // TODO determenistic decision mkaing based on meshtastic channel PSK salt + new.editorHash vs old.editorHash
+                      val newHashString = newHash.joinToString("") { "%02x".format(it) }
+                      val oldHashString = oldHash.joinToString("") { "%02x".format(it) }
+
+                      // CONFLICT! // TODO deterministic decision mkaing based on meshtastic channel PSK salt + new.editorHash vs old.editorHash
                       if ( newInt < oldInt ) {
                           //< do rewrite! > < new one wins! >
                           val existingEntity = dao.getById(newPinLogical.pinLogicalId)          // side effect 1!
@@ -352,11 +357,11 @@ class RepoPin(
 
                           onHandledPinUpdateRequestCallback?.invoke(newPinLogical) // side effect 2!
 
-                          Toast.makeText(fuckingContext, "equal lamports! but INCOMING pin won!", Toast.LENGTH_SHORT).show()
+
+                          Log.d("ASS", "NEW PIN WON ${newHashString}, ${oldHashString}")
 
                       } else {
-                          // < do DROP! > < stored one wins! >
-                          Toast.makeText(fuckingContext, "equal lamports! but STORED pin won!", Toast.LENGTH_SHORT).show()
+                          Log.d("ASS", "OLD PIN WON ${newHashString}, ${oldHashString}")
                       }
                   }
 
@@ -390,6 +395,75 @@ class RepoPin(
 
     }
 
+    suspend fun handleIncomingPinMessage2(parsedRawPinMessage: PinMessage) {
+
+        when (val foundStoredPin = dao.getById(parsedRawPinMessage.pinLogicalId)) {
+
+            null -> {
+                // < NONE found! create NEW > < KEEP THE LAMPORT! (tweak the new pin pipe) >
+
+            }
+            else -> {
+                // < ITS CLEARLY a PIN UPDATE > < go along the update pipe >
+
+                val newPinLogical = buildBasedOnOldPinFromMessage(foundStoredPin, parsedRawPinMessage)
+
+
+                when (newPinLogical.lamportEpoch > foundStoredPin.lamportEpoch) {
+
+                    true -> {
+
+//                        val newPinEntity = convertToEntity(newPinLogical)
+//                        val newPinEntityUpdated = newPinEntity.copy(
+//                            internalId = foundStoredPin.internalId
+//                        )
+//                        dao.update(newPinEntityUpdated)
+//
+//                        onHandledPinUpdateRequestCallback?.invoke(newPinLogical)
+//
+                            // < EXAMPLE >
+
+//                        @Entity(tableName = "pin_versions")
+//                        data class PinVersion(
+//                            @PrimaryKey(autoGenerate = true) val internalId: Long,
+//                            val pinLogicalId: Int,  // ← which pin
+//                            val lamport: Int,
+//                            val editorHash: String,
+//                            // ... other fields
+//                        )
+//
+//                        @Entity(tableName = "pin_winners")
+//                        data class PinWinner(
+//                            @PrimaryKey val pinLogicalId: Int,  // ← one per pin
+//                            val winningInternalId: Long         // ← FK to pin_versions
+//                        )
+
+                    }
+                    false -> {
+
+                    }
+                }
+
+
+
+            }
+//                if (newPinLogical.lamportEpoch > storedPinEntity.lamportEpoch) { // TODO бля, второй час ночи, попытка починить ХОЛОД
+//
+//                    val existingEntity = dao.getById(newPinLogical.pinLogicalId)          // side effect 1!
+//                    val updatedEntity = convertToEntity(newPinLogical)
+//                    val entityToUpdate = updatedEntity.copy(
+//                        internalId = existingEntity!!.internalId
+//                    )
+//                    dao.update(entityToUpdate)
+//
+//                    onHandledPinUpdateRequestCallback?.invoke(newPinLogical) // side effect 2!
+
+            }
+
+        }
+
+
+    } // handler finish bracket
 
 // 🎊🎊🎊 INTERACTIVE PART 🎊🎊🎊
 
