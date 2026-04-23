@@ -302,7 +302,7 @@ class RepoPin(
         }.toSet()
     }
     suspend fun deleteBulkByLogicalIds(pinLogicalIds: Set<Int>): Int {
-        return dao.deleteBulkByLogicalIds(pinLogicalIds)
+        return dao.deleteBulkByLogIds(pinLogicalIds)
     }
 
     suspend fun handleIncomingPinMessage(parsedRawPinMessage: PinMessage) {
@@ -387,56 +387,27 @@ class RepoPin(
                 //                  <drop! for now its invalid garbage for us!> // TODO implement HISTORY (so no information gets dropped ever) 2
                 return
             }
-
-
         }
-
-//        Toast.makeText(fuckingContext, "RECEIVED PIN ID: ${parsedRawPinMessage.pinLogicalId}", Toast.LENGTH_SHORT ).show() //TODO: toast receuved debug toast
-
     }
 
     suspend fun handleIncomingPinMessage2(parsedRawPinMessage: PinMessage) {
 
+        // #0 first SEEK for the pin in COLD STORAGE
         when (val foundStoredPin = dao.getById(parsedRawPinMessage.pinLogicalId)) {
 
-            null -> {
-                // < NONE found! create NEW > < KEEP THE LAMPORT! (tweak the new pin pipe) >
+            null -> { // < NONE found! create NEW > < TODO KEEP THE LAMPORT! (tweak the new pin pipe) >
 
             }
-            else -> {
-                // < ITS CLEARLY a PIN UPDATE > < go along the update pipe >
+            else -> { // < ITS CLEARLY a PIN UPDATE > < go along the update pipe >
 
                 val newPinLogical = buildBasedOnOldPinFromMessage(foundStoredPin, parsedRawPinMessage)
 
+                // TODO < VALIDATE HERE? HOW? WHEN STRUCTURE>
 
                 when (newPinLogical.lamportEpoch > foundStoredPin.lamportEpoch) {
 
                     true -> {
 
-//                        val newPinEntity = convertToEntity(newPinLogical)
-//                        val newPinEntityUpdated = newPinEntity.copy(
-//                            internalId = foundStoredPin.internalId
-//                        )
-//                        dao.update(newPinEntityUpdated)
-//
-//                        onHandledPinUpdateRequestCallback?.invoke(newPinLogical)
-//
-                            // < EXAMPLE >
-
-//                        @Entity(tableName = "pin_versions")
-//                        data class PinVersion(
-//                            @PrimaryKey(autoGenerate = true) val internalId: Long,
-//                            val pinLogicalId: Int,  // ← which pin
-//                            val lamport: Int,
-//                            val editorHash: String,
-//                            // ... other fields
-//                        )
-//
-//                        @Entity(tableName = "pin_winners")
-//                        data class PinWinner(
-//                            @PrimaryKey val pinLogicalId: Int,  // ← one per pin
-//                            val winningInternalId: Long         // ← FK to pin_versions
-//                        )
 
                     }
                     false -> {
@@ -458,12 +429,10 @@ class RepoPin(
 //
 //                    onHandledPinUpdateRequestCallback?.invoke(newPinLogical) // side effect 2!
 
-            }
-
         }
 
+    } // handler2 finish bracket
 
-    } // handler finish bracket
 
 // 🎊🎊🎊 INTERACTIVE PART 🎊🎊🎊
 

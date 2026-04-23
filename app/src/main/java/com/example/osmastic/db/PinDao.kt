@@ -9,29 +9,62 @@ import androidx.room.Update
 @Dao
 interface PinDao {
 
-    // CREATE ONE: Insert a single pin (replace on conflict)
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(pin: Pin)
+    // CREATE ONE: Insert a single pin (No REPLACE - keep all versions)
+    @Insert
+    suspend fun insertVersion(pin: Pin): Long
 
     // GET ALL: Get all pins
+    @Query("""
+        SELECT pin.* FROM pin
+        JOIN to_be_rendered_pins ON pin.internalId = to_be_rendered_pins.pinVersionInternalID
+    """)
+    suspend fun getAllActivePins(): List<Pin>
+    
+    // GET ONE: Get a pin by its ID
+    @Query("""
+        SELECT pin.* FROM pin
+        JOIN to_be_rendered_pins ON pin.internalId = to_be_rendered_pins.pinVersionInternalID
+        WHERE to_be_rendered_pins.pinLogicalId = :logicalId
+    """)
+    suspend fun getOneActivePinByLogId(logicalId: Int): Pin?
+
+    // GET MANY: Get all versions of an active and not stale pin
+    @Query("SELECT * FROM pin WHERE pinLogicalId = :logicalId ORDER BY lamportEpoch DESC")
+    suspend fun getAllVersionsByLogId(logicalId: Int): List<Pin>
+
+    // DROP BULK BY LOGICAL ID ( drops relations in cascade! )
+    @Query("DELETE FROM pin WHERE pinLogicalId IN (:pinLogicalIds)")
+    suspend fun deleteBulkByLogIds(pinLogicalIds: Set<Int>): Int
+
+    // ----------------------------------------------------------------------------------- //
+
+    // DEPRECATED CREATE ONE: Insert a single pin (replace on conflict)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(pin: Pin)
+    
+    // DEPRECATED GET ALL: Get all pins
     @Query("SELECT * FROM pin")
     suspend fun getAll(): List<Pin>
+    
+    // DEPRECATED COLLISION SEEKING
+    @Query("SELECT EXISTS(SELECT 1 FROM pin WHERE pinLogicalId = :id)")
+    suspend fun pinExists(id: Int): Boolean
 
-    // GET ONE: Get a pin by its ID
-    @Query("SELECT * FROM pin WHERE pinLogicalId = :id LIMIT 1")
-    suspend fun getById(id: Int): Pin?
-
-    // UPDATE ONE: Update an existing pin
+    // DEPRECATED UPDATE ONE: Update an existing pin
     @Update
     suspend fun update(pin: Pin)
 
-    // BULK BY LOGICAL ID
-    @Query("DELETE FROM pin WHERE pinLogicalId IN (:pinLogicalIds)")
-    suspend fun deleteBulkByLogicalIds(pinLogicalIds: Set<Int>): Int
+    // DEPRECATED GET ONE: Get a pin by its ID
+    @Query("SELECT * FROM pin WHERE pinLogicalId = :id LIMIT 1")
+    suspend fun getById(id: Int): Pin?
+}
 
-    // COLLISION SEEKING
-    @Query("SELECT EXISTS(SELECT 1 FROM pin WHERE pinLogicalId = :id)")
-    suspend fun pinExists(id: Int): Boolean
+
+@Dao
+interface ToBeRenderedPinDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun choosePinForRendering(winner: ToBeRenderedPin)
 
 }
 

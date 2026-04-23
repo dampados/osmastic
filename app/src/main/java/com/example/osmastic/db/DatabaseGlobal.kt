@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import android.content.Context
 
 @Database(
-    entities = [Pin::class],  // add like this:  [Pin::class, Channel::class, ChannelPinJoin::class]
+    entities = [Pin::class, ToBeRenderedPin::class],
     version = 1,
     autoMigrations = [  // MIGRATIONS (like adoing a new field, nothing fancy
         // Auto migrations for future versions
