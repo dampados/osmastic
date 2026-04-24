@@ -11,7 +11,7 @@ message PinMessage {
   optional int32 lamport_epoch = 3;
   optional float lat = 4;
   optional float lon = 5;
-  optional int32 rotation_byte = 6;
+      optional int32 rotation_byte = 6;
   optional string icon_unicode = 7;
   optional string label = 8;
   optional bool is_hidden_before_ttl = 9;

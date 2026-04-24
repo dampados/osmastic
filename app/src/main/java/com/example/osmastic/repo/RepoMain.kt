@@ -390,48 +390,46 @@ class RepoPin(
         }
     }
 
-    suspend fun handleIncomingPinMessage2(parsedRawPinMessage: PinMessage) {
+        suspend fun handleIncomingPinMessage2(parsedRawPinMessage: PinMessage) {
 
-        // #0 first SEEK for the pin in COLD STORAGE
-        when (val foundStoredPin = dao.getById(parsedRawPinMessage.pinLogicalId)) {
+            // # 00
+            var wasFoundStored = false
 
-            null -> { // < NONE found! create NEW > < TODO KEEP THE LAMPORT! (tweak the new pin pipe) >
-
+            // #0 first SEEK for the pin in COLD STORAGE
+            val superpositionedPin = when (val foundStoredPin = dao.getById(parsedRawPinMessage.pinLogicalId)) {
+                null ->  buildBasedOnDefaultsFromMessage(parsedRawPinMessage)
+                else -> { wasFoundStored = true; buildBasedOnOldPinFromMessage(foundStoredPin, parsedRawPinMessage) }
             }
-            else -> { // < ITS CLEARLY a PIN UPDATE > < go along the update pipe >
 
-                val newPinLogical = buildBasedOnOldPinFromMessage(foundStoredPin, parsedRawPinMessage)
-
-                // TODO < VALIDATE HERE? HOW? WHEN STRUCTURE>
-
-                when (newPinLogical.lamportEpoch > foundStoredPin.lamportEpoch) {
-
-                    true -> {
-
-
-                    }
-                    false -> {
-
-                    }
+            when (val result = validatePin(superpositionedPin)) {
+                is ValidationResult.Invalid -> {
+                    Log.e("PinValidation", "Invalid pin: ${superpositionedPin.pinLogicalId}, errors: ${result.errors}")
+                    return  // < BREAK // >
                 }
-
-
-
+                is ValidationResult.Valid -> { }
             }
-//                if (newPinLogical.lamportEpoch > storedPinEntity.lamportEpoch) { // TODO бля, второй час ночи, попытка починить ХОЛОД
-//
-//                    val existingEntity = dao.getById(newPinLogical.pinLogicalId)          // side effect 1!
-//                    val updatedEntity = convertToEntity(newPinLogical)
-//                    val entityToUpdate = updatedEntity.copy(
-//                        internalId = existingEntity!!.internalId
-//                    )
-//                    dao.update(entityToUpdate)
-//
-//                    onHandledPinUpdateRequestCallback?.invoke(newPinLogical) // side effect 2!
 
-        }
+            if ( !wasFoundStored && !parsedRawPinMessage.hasLamportEpoch() ) {
+                // now we are SURE it was intended as a creation!
+                // just add and make a winner
+            }
 
-    } // handler2 finish bracket
+            if ( !wasFoundStored && parsedRawPinMessage.hasLamportEpoch() ) {
+                // now we are SURE the thing existed on sender device! but what is it?
+                if (parsedRawPinMessage.lamportEpoch == 1) {
+                    // now we are SURE that this is a rare case of retransmitting just created pin!
+                    // just add and make a winner
+                } else if (parsedRawPinMessage.lamportEpoch > 1) {
+                    // now we are SURE that we missed initial pin creation!
+                    // just add and make a winner
+                }
+            }
+
+            if (wasFoundStored) {
+                // here goes usual lamport and editor mark comparisons and winner swap
+            }
+
+        } // handler2 finish bracket
 
 
 // 🎊🎊🎊 INTERACTIVE PART 🎊🎊🎊
