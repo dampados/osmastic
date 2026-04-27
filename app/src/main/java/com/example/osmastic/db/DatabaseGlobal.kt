@@ -19,6 +19,7 @@ import android.content.Context
 //@TypeConverters(Converters::class)  // We'll need converters for ByteArray etc.
 abstract class AppDatabase : RoomDatabase() {
     abstract fun pinDao(): PinDao
+    abstract fun winnerDao(): ToBeRenderedPinDao
     // add like this: abstract fun channelDao(): ChannelDao
 
     companion object {

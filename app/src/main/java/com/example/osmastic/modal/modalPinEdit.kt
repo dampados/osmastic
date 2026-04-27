@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.osmastic.PinUI
 import org.osmdroid.util.GeoPoint
-import kotlin.text.ifEmpty
 
 @Composable
 fun PinEditDialog(
@@ -108,15 +107,6 @@ fun PinEditDialog(
                             label = { Text("Emoji") }
                         )
                     }
-//                    2 -> {
-//                        OutlinedTextField(
-//                            value = pinUnderConstruction.label ?: "",
-//                            onValueChange = {
-//                                pinUnderConstruction = pinUnderConstruction.copy(label = it.ifEmpty { null })
-//                            },
-//                            label = { Text("Label") }
-//                        )
-//                    }
                     2 -> {
                         OutlinedTextField(
                             value = pinUnderConstruction.label,
@@ -126,19 +116,35 @@ fun PinEditDialog(
                             label = { Text("Label") }
                         )
                     }
+//                    3 -> {
+//                        val rotationInDegs = (pinUnderConstruction.rotationByte ?: 0) * (360f/255f)
+//                        Text("Rotation: ${rotationInDegs.toInt()}°")
+//                        Slider(
+//                            value = rotationInDegs,
+//                            onValueChange = { degrees ->
+//                                val byteValue = (degrees * (255f/360f)).toInt()  // 360 → 255
+//                                pinUnderConstruction = pinUnderConstruction.copy(
+//                                    rotationByte = byteValue
+//                                )
+//                            },
+//                            valueRange = 0f..360f,
+//                            steps = 359
+//                        )
+//                    }
                     3 -> {
-                        val rotationInDegs = (pinUnderConstruction.rotationByte ?: 0) * (360f/255f)
-                        Text("Rotation: ${rotationInDegs.toInt()}°")
+                        val rotationSteps = 127  // we fitting single byte for protobuf! 0-126 maps to 0-360
+                        val rotationInDegs = ((pinUnderConstruction.rotationByte ?: 0) * (360f / rotationSteps)).toInt()
+                        Text("Rotation: ${rotationInDegs}°")
                         Slider(
-                            value = rotationInDegs,
+                            value = rotationInDegs.toFloat(),
                             onValueChange = { degrees ->
-                                val byteValue = (degrees * (255f/360f)).toInt()  // 360 → 255
+                                val byteValue = (degrees * (rotationSteps / 360f)).toInt().coerceIn(0, rotationSteps - 1)
                                 pinUnderConstruction = pinUnderConstruction.copy(
                                     rotationByte = byteValue
                                 )
                             },
                             valueRange = 0f..360f,
-                            steps = 359
+                            steps = rotationSteps - 1
                         )
                     }
                     4 -> {
@@ -149,17 +155,36 @@ fun PinEditDialog(
                             }
                         )
                     }
+//                    5 -> {
+//                        var uiHoursTTL = pinUnderConstruction.secondsTTL
+////                            Text("TTL: $uiHoursTTL hours")
+//                        Text("TTL: $uiHoursTTL minutes! testing") //TODO replace on hours!
+//                        Slider(
+//                            value = uiHoursTTL.toFloat(),
+//                            onValueChange = { sliderValue ->
+//                                pinUnderConstruction = pinUnderConstruction.copy(secondsTTL = sliderValue.toInt())
+//                            },
+//                            valueRange = 0f..255f,
+//                            steps = 253
+//                        )
+//                    }
                     5 -> {
-                        var uiHoursTTL = pinUnderConstruction.hoursTTL
-//                            Text("TTL: $uiHoursTTL hours")
-                        Text("TTL: $uiHoursTTL minutes! testing") //TODO replace on hours!
+                        val maxSeconds = 16383
+                        var seconds = pinUnderConstruction.secondsTTL
+
+                        val days = seconds / 86400
+                        val hours = (seconds % 86400) / 3600
+                        val minutes = (seconds % 3600) / 60
+                        val remainingSeconds = seconds % 60
+
+                        Text("TTL: ${if (days > 0) "${days}d " else ""}${if (hours > 0) "${hours}h " else ""}${if (minutes > 0) "${minutes}m " else ""}${remainingSeconds}s")
+
                         Slider(
-                            value = uiHoursTTL.toFloat(),
-                            onValueChange = { sliderValue ->
-                                pinUnderConstruction = pinUnderConstruction.copy(hoursTTL = sliderValue.toInt())
+                            value = seconds.toFloat(),
+                            onValueChange = { newSeconds ->
+                                pinUnderConstruction = pinUnderConstruction.copy(secondsTTL = newSeconds.toInt().coerceIn(0, maxSeconds))
                             },
-                            valueRange = 0f..255f,
-                            steps = 253
+                            valueRange = 0f..maxSeconds.toFloat()
                         )
                     }
                 }

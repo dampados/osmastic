@@ -7,7 +7,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.text.TextPaint
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
@@ -106,7 +105,7 @@ data class PinUI(
 //    val label: String? = null, // STOP BEING NULL FOR THE PROTOBUF SAKE!
     val label: String = "",
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
-    val hoursTTL: Int = 6, // SIX HOURS DEFAULT life time
+    val secondsTTL: Int = 6, // SIX MINUTES DEFAULT life time
 )
 data class PinLogical(
     val pinLogicalId: Int,
@@ -118,7 +117,7 @@ data class PinLogical(
 )
 
 // 📥📥📥 SCREEN WIDE STATE 📥📥📥
-data class StateMapModel(
+data class StateMapModel (
     val viewPort: ViewPort = ViewPort(
         mapCenter = GeoPoint(59.9343, 30.3351), // default loc, SPB
         mapZoom = 11.0,
@@ -162,15 +161,11 @@ class StateMapViewModel @Inject constructor(
         mapPrefsManager.saveMapPos(currentViewPort)
     }
     private fun pushNewPinFromBottom(incomingPinUI: PinUI): PinLogical {
-        val HOUR = 3600 // todo default - will be a few HOURS, not seconds
-        val MINUTE = 60 // todo UGLY DEBUG remove later
-        val SECOND = 1  // todo UGLY DEBUG remove later
-
         //#0 prep data
-        val calculatedExpTimestamp = if (incomingPinUI.hoursTTL == 0) {
+        val calculatedExpTimestamp = if (incomingPinUI.secondsTTL == 0) {
             0L  // eternal
         } else {
-            System.currentTimeMillis() + (incomingPinUI.hoursTTL * SECOND * 1000)
+            System.currentTimeMillis() + (incomingPinUI.secondsTTL * 1000)
         }
         // WHY 4 UTF-8? for 65k chance for collision. 2 bytes for teh same chance only possible via custom byte array protocol
         val fetchedEditorHash = repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()?.takeLast(4) ?: "local"
@@ -221,12 +216,28 @@ class StateMapViewModel @Inject constructor(
         //#0 prep data // WHY 4 UTF-8? for 65k chance for collision. 2 bytes for teh same chance only possible via custom byte array protocol
         val fetchedEditorHash = repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()?.takeLast(4) ?: "local"
 
-        val newPinLogical = PinLogical(
+        val newPinLogicalHalfBaked = PinLogical(
             pinLogicalId = oldFoundPinLogical.pinLogicalId,
             lamportEpoch = oldFoundPinLogical.lamportEpoch + 1,
             editorHash = fetchedEditorHash, //oldFoundPinLogical.editorHash,
             expirationTimestamp = oldFoundPinLogical.expirationTimestamp,
             pinPhysProps = updatedPinPhysProps,
+        )
+
+        // we push to repo a pin logical object with recaulated TTL so EACH node could recreate PIN if missed initial one
+        // better convergence on drifted away clocks!
+        val recalculatedSecondsTTL = when {
+            newPinLogicalHalfBaked.expirationTimestamp == 0L -> 0  // eternal
+            else -> {
+                val remaining = ((newPinLogicalHalfBaked.expirationTimestamp - System.currentTimeMillis()) / 1000).toInt()
+                remaining.coerceIn(1, 16383)  // varint KILLER SWITCH (not more than 2 bytes payload)
+            }
+        }
+
+        val newPinLogical = newPinLogicalHalfBaked.copy(
+            pinPhysProps = newPinLogicalHalfBaked.pinPhysProps.copy(
+                secondsTTL = recalculatedSecondsTTL //SECONDS FROM NOW ON | two bytes max
+            )
         )
 
         //#1 update MVU
