@@ -110,7 +110,7 @@ data class PinUI(
 data class PinLogical(
     val pinLogicalId: Int,
 //    val editorHash: ByteArray,
-    val editorHash: String,
+    val editorMark: String,
     val lamportEpoch: Int = 1,
     val expirationTimestamp: Long = 0L,  // milliseconds full epoch (built from local epoch + 1 byte hours from message) 0 = no TTL
     val pinPhysProps: PinUI,
@@ -175,7 +175,7 @@ class StateMapViewModel @Inject constructor(
         //#1 construct a new pin
         val newPinLogical = PinLogical(
             pinLogicalId = SecureRandom().nextInt(1 shl 24),
-            editorHash = fetchedEditorHash,
+            editorMark = fetchedEditorHash,
             expirationTimestamp = calculatedExpTimestamp,
             pinPhysProps = incomingPinUI
         )
@@ -221,7 +221,7 @@ class StateMapViewModel @Inject constructor(
         val newPinLogicalHalfBaked = PinLogical(
             pinLogicalId = oldFoundPinLogical.pinLogicalId,
             lamportEpoch = oldFoundPinLogical.lamportEpoch + 1,
-            editorHash = fetchedEditorHash, //oldFoundPinLogical.editorHash,
+            editorMark = fetchedEditorHash, //oldFoundPinLogical.editorHash,
             expirationTimestamp = oldFoundPinLogical.expirationTimestamp,
             pinPhysProps = updatedPinPhysProps,
         )
