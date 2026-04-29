@@ -156,38 +156,84 @@ fun PinEditDialog(
                         )
                     }
 //                    5 -> {
-//                        var uiHoursTTL = pinUnderConstruction.secondsTTL
-////                            Text("TTL: $uiHoursTTL hours")
-//                        Text("TTL: $uiHoursTTL minutes! testing") //TODO replace on hours!
+//                        val maxMinutes = 16383
+//                        var remainingRawTime = pinUnderConstruction.minutesTTL
+//
+//                        val days = remainingRawTime / 1440
+//                        val hours = (remainingRawTime % 1440) / 60
+//                        val remainingMinutes = remainingRawTime % 60
+//
+//                        Text("TTL: ${if (days > 0) "${days}d " else ""}${if (hours > 0) "${hours}h " else ""}${remainingMinutes}m")
+//
 //                        Slider(
-//                            value = uiHoursTTL.toFloat(),
-//                            onValueChange = { sliderValue ->
-//                                pinUnderConstruction = pinUnderConstruction.copy(secondsTTL = sliderValue.toInt())
+//                            value = remainingRawTime.toFloat(),
+//                            onValueChange = { newMinutes ->
+//                                pinUnderConstruction = pinUnderConstruction.copy(minutesTTL = newMinutes.toInt().coerceIn(0, maxMinutes))
 //                            },
-//                            valueRange = 0f..255f,
-//                            steps = 253
+//                            valueRange = 0f..maxMinutes.toFloat()
 //                        )
 //                    }
+
+
                     5 -> {
-                        val maxSeconds = 16383
-                        var seconds = pinUnderConstruction.secondsTTL
+                        val maxMinutes = 16383
+                        var ttl by remember { mutableStateOf(pinUnderConstruction.minutesTTL.coerceIn(0, maxMinutes)) }
 
-                        val days = seconds / 86400
-                        val hours = (seconds % 86400) / 3600
-                        val minutes = (seconds % 3600) / 60
-                        val remainingSeconds = seconds % 60
+                        val daysRaw = ttl / 1440
+                        val hoursRaw = (ttl % 1440) / 60
+                        val minutesRaw = ttl % 60
 
-                        Text("TTL: ${if (days > 0) "${days}d " else ""}${if (hours > 0) "${hours}h " else ""}${if (minutes > 0) "${minutes}m " else ""}${remainingSeconds}s")
+                        fun updateTtl(newTtl: Int) {
+                            ttl = newTtl.coerceIn(0, maxMinutes)
+                            pinUnderConstruction = pinUnderConstruction.copy(minutesTTL = ttl)
+                        }
 
-                        Slider(
-                            value = seconds.toFloat(),
-                            onValueChange = { newSeconds ->
-                                pinUnderConstruction = pinUnderConstruction.copy(secondsTTL = newSeconds.toInt().coerceIn(0, maxSeconds))
-                            },
-                            valueRange = 0f..maxSeconds.toFloat()
-                        )
+                        Column {
+                            Text("TTL: ${if (ttl == 0) "Eternal" else "${daysRaw}d ${hoursRaw}h ${minutesRaw}m"}")
+
+                            Text("Days: $daysRaw")
+                            Slider(
+                                value = daysRaw.toFloat(),
+                                onValueChange = { days ->
+                                    if (days.toInt() == 11) {
+                                        // Max days = reset hours/minutes to 0
+                                        updateTtl(11 * 1440)
+                                    } else {
+                                        val newTtl = (days.toInt() * 1440) + (ttl % 1440)
+                                        updateTtl(newTtl)
+                                    }
+                                },
+                                valueRange = 0f..11f
+                            )
+
+                            // Disabled when days == 11
+                            Text("Hours: $hoursRaw")
+                            Slider(
+                                value = hoursRaw.toFloat(),
+                                onValueChange = { hours ->
+                                    val newTtl = (ttl / 1440 * 1440) + (hours.toInt() * 60) + (ttl % 60)
+                                    updateTtl(newTtl)
+                                },
+                                valueRange = 0f..23f,
+                                enabled = daysRaw != 11
+                            )
+
+                            // Disabled when days == 11
+                            Text("Minutes: $minutesRaw")
+                            Slider(
+                                value = minutesRaw.toFloat(),
+                                onValueChange = { mins ->
+                                    val newTtl = (ttl / 60 * 60) + mins.toInt()
+                                    updateTtl(newTtl)
+                                },
+                                valueRange = 0f..59f,
+                                enabled = daysRaw != 11
+                            )
+                        }
                     }
-                }
+
+
+                }// finisher
 
                 Button(onClick = {
                     onConfirm(pinUnderConstruction)

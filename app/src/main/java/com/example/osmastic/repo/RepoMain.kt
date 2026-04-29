@@ -44,7 +44,8 @@ class RepoPin(
 //            errors.add("Icon must be a single character")
 //        }
 /*ICON*/ val icon = incomingPinLogical.pinPhysProps.iconUnicode
-        val hasAsciiLetterOrDigit = icon.any { it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' }
+//        val hasAsciiLetterOrDigit = icon.any { it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' }
+        val hasAsciiLetterOrDigit = icon.any { it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' || it in 'А'..'Я' || it in 'а'..'я' || it == 'ё' || it == 'Ё' }
         if (hasAsciiLetterOrDigit) {
             errors.add("Use emojis or symbols only (no letters or numbers)")
         }
@@ -56,9 +57,9 @@ class RepoPin(
                 errors.add("Label must be ≤ 20 characters")
             }
         }
-/*TTL*/ val ttlHours = incomingPinLogical.pinPhysProps.secondsTTL
+/*TTL*/ val ttlHours = incomingPinLogical.pinPhysProps.minutesTTL
         if (ttlHours !in 0..16383) {
-            errors.add("TTL must be 0-16383 seconds")
+            errors.add("TTL must be 0-16383 minutes")
         }
         return if (errors.isEmpty())
             ValidationResult.Valid
@@ -104,8 +105,8 @@ class RepoPin(
             builderProtobuf.setLabel(opl.pinPhysProps.label)
         if (opl.pinPhysProps.isHiddenBeforeTTL != defaultPin.pinPhysProps.isHiddenBeforeTTL)
             builderProtobuf.setIsHiddenBeforeTtl(opl.pinPhysProps.isHiddenBeforeTTL)
-        if (opl.pinPhysProps.secondsTTL != defaultPin.pinPhysProps.secondsTTL)
-            builderProtobuf.setHoursTTL(opl.pinPhysProps.secondsTTL)
+        if (opl.pinPhysProps.minutesTTL != defaultPin.pinPhysProps.minutesTTL)
+            builderProtobuf.setHoursTTL(opl.pinPhysProps.minutesTTL)
 
         return builderProtobuf
     }
@@ -148,8 +149,8 @@ class RepoPin(
             builderProtobuf.setLabel(newPinLogical.pinPhysProps.label)
 
         // TTL freaking 5D chess! omit only if default. but ALWAYS LOGICALLY PRESENT
-        if (newPinLogical.pinPhysProps.secondsTTL != defaultPin.pinPhysProps.secondsTTL)
-            builderProtobuf.setHoursTTL(newPinLogical.pinPhysProps.secondsTTL)
+        if (newPinLogical.pinPhysProps.minutesTTL != defaultPin.pinPhysProps.minutesTTL)
+            builderProtobuf.setHoursTTL(newPinLogical.pinPhysProps.minutesTTL)
 
         // is hidden optional field: if omitted -> pin NOT hidden. ALWAYS LOGICALLY PRESENT.
         if (newPinLogical.pinPhysProps.isHiddenBeforeTTL != defaultPin.pinPhysProps.isHiddenBeforeTTL)
@@ -186,7 +187,7 @@ class RepoPin(
         val _pinLogicalId = incomingPinMessage.pinLogicalId
         val _editorHash = incomingPinMessage.editorHash
         val _lamportEpoch = if (incomingPinMessage.hasLamportEpoch()) incomingPinMessage.lamportEpoch else defaultPin.lamportEpoch
-        val _secondsTTL = if (incomingPinMessage.hasHoursTTL()) incomingPinMessage.hoursTTL else defaultPin.pinPhysProps.secondsTTL
+        val _secondsTTL = if (incomingPinMessage.hasHoursTTL()) incomingPinMessage.hoursTTL else defaultPin.pinPhysProps.minutesTTL
 
         // here _secondsTTL must be already either 0, or 360 (6 on debug stage), or custom.
         val _expirationTimestamp = if (_secondsTTL == 0) 0L else System.currentTimeMillis() + (_secondsTTL * 1000)
@@ -221,7 +222,7 @@ class RepoPin(
                 iconUnicode = _iconUnicode,
                 label = _label,
                 isHiddenBeforeTTL = _isHiddenBeforeTTL,
-                secondsTTL = _secondsTTL
+                minutesTTL = _secondsTTL
             )
         )
     }

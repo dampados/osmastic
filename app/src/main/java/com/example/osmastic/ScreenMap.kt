@@ -105,7 +105,7 @@ data class PinUI(
 //    val label: String? = null, // STOP BEING NULL FOR THE PROTOBUF SAKE!
     val label: String = "",
     val isHiddenBeforeTTL: Boolean = false, // 1 byte
-    val secondsTTL: Int = 6, // SIX MINUTES DEFAULT life time
+    val minutesTTL: Int = 1, // SIX MINUTES DEFAULT life time
 )
 data class PinLogical(
     val pinLogicalId: Int,
@@ -162,10 +162,10 @@ class StateMapViewModel @Inject constructor(
     }
     private fun pushNewPinFromBottom(incomingPinUI: PinUI): PinLogical {
         //#0 prep data
-        val calculatedExpTimestamp = if (incomingPinUI.secondsTTL == 0) {
+        val calculatedExpTimestamp = if (incomingPinUI.minutesTTL == 0) {
             0L  // eternal
         } else {
-            System.currentTimeMillis() + (incomingPinUI.secondsTTL * 1000)
+            System.currentTimeMillis() + (incomingPinUI.minutesTTL * 1000)
         }
         // WHY 4 UTF-8? for 65k chance for collision. 2 bytes for teh same chance only possible via custom byte array protocol
         val fetchedEditorHash = repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()?.takeLast(4) ?: "local"
@@ -236,7 +236,7 @@ class StateMapViewModel @Inject constructor(
 
         val newPinLogical = newPinLogicalHalfBaked.copy(
             pinPhysProps = newPinLogicalHalfBaked.pinPhysProps.copy(
-                secondsTTL = recalculatedSecondsTTL //SECONDS FROM NOW ON | two bytes max
+                minutesTTL = recalculatedSecondsTTL //SECONDS FROM NOW ON | two bytes max
             )
         )
 
