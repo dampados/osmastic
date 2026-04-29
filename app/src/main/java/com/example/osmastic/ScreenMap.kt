@@ -165,7 +165,9 @@ class StateMapViewModel @Inject constructor(
         val calculatedExpTimestamp = if (incomingPinUI.minutesTTL == 0) {
             0L  // eternal
         } else {
-            System.currentTimeMillis() + (incomingPinUI.minutesTTL * 1000)
+            val SECOND_IN_MIL = 1000
+            val MINUTE_IN_SEC = 60
+            System.currentTimeMillis() + (incomingPinUI.minutesTTL * MINUTE_IN_SEC * SECOND_IN_MIL)
         }
         // WHY 4 UTF-8? for 65k chance for collision. 2 bytes for teh same chance only possible via custom byte array protocol
         val fetchedEditorHash = repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()?.takeLast(4) ?: "local"
@@ -224,19 +226,21 @@ class StateMapViewModel @Inject constructor(
             pinPhysProps = updatedPinPhysProps,
         )
 
+        val SECOND_IN_MIL = 1000
+        val MINUTE_IN_SEC = 60
         // we push to repo a pin logical object with recaulated TTL so EACH node could recreate PIN if missed initial one
         // better convergence on drifted away clocks!
-        val recalculatedSecondsTTL = when {
+        val recalculatedMinutesTTL = when {
             newPinLogicalHalfBaked.expirationTimestamp == 0L -> 0  // eternal
             else -> {
-                val remaining = ((newPinLogicalHalfBaked.expirationTimestamp - System.currentTimeMillis()) / 1000).toInt()
+                val remaining = ((newPinLogicalHalfBaked.expirationTimestamp - System.currentTimeMillis()) / (SECOND_IN_MIL * MINUTE_IN_SEC) ).toInt()
                 remaining.coerceIn(1, 16383)  // varint KILLER SWITCH (not more than 2 bytes payload)
             }
         }
 
         val newPinLogical = newPinLogicalHalfBaked.copy(
             pinPhysProps = newPinLogicalHalfBaked.pinPhysProps.copy(
-                minutesTTL = recalculatedSecondsTTL //SECONDS FROM NOW ON | two bytes max
+                minutesTTL = recalculatedMinutesTTL // MINUTES FROM NOW ON | two bytes max
             )
         )
 
