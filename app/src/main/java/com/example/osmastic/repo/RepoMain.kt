@@ -187,10 +187,12 @@ class RepoPin(
         val _pinLogicalId = incomingPinMessage.pinLogicalId
         val _editorHash = incomingPinMessage.editorHash
         val _lamportEpoch = if (incomingPinMessage.hasLamportEpoch()) incomingPinMessage.lamportEpoch else defaultPin.lamportEpoch
-        val _secondsTTL = if (incomingPinMessage.hasHoursTTL()) incomingPinMessage.hoursTTL else defaultPin.pinPhysProps.minutesTTL
+        val _minutesTTL = if (incomingPinMessage.hasHoursTTL()) incomingPinMessage.hoursTTL else defaultPin.pinPhysProps.minutesTTL
 
-        // here _secondsTTL must be already either 0, or 360 (6 on debug stage), or custom.
-        val _expirationTimestamp = if (_secondsTTL == 0) 0L else System.currentTimeMillis() + (_secondsTTL * 1000)
+        // here _minutesTTL must be already either 0, or 6 (1 on debug stage), or custom.
+        val SECOND_IN_MIL = 1000
+        val MINUTE_IN_SEC = 60
+        val _expirationTimestamp = if (_minutesTTL == 0) 0L else System.currentTimeMillis() + (_minutesTTL * SECOND_IN_MIL * MINUTE_IN_SEC)
 
 //        val _lat = if (pinProtobuf.hasLat()) pinProtobuf.lat else dao.getById(_pinLogicalId)?.latitude  // UGLY?
 //        val _lon = if (pinProtobuf.hasLon()) pinProtobuf.lon else dao.getById(_pinLogicalId)?.longitude // UGLY?
@@ -222,7 +224,7 @@ class RepoPin(
                 iconUnicode = _iconUnicode,
                 label = _label,
                 isHiddenBeforeTTL = _isHiddenBeforeTTL,
-                minutesTTL = _secondsTTL
+                minutesTTL = _minutesTTL
             )
         )
     }
@@ -345,7 +347,7 @@ class RepoPin(
 
     }
     suspend fun getAllPins(): Set<PinLogical> {
-        return pinDao.getAll().map { fetchedEntity ->
+        return pinDao.getAllActivePins().map { fetchedEntity ->
             PinLogical(
                 pinLogicalId = fetchedEntity.pinLogicalId,
                 lamportEpoch = fetchedEntity.lamportEpoch,
@@ -357,7 +359,6 @@ class RepoPin(
                     label = fetchedEntity.label,
                     rotationByte = fetchedEntity.rotationByte,
                     isHiddenBeforeTTL = fetchedEntity.isHiddenBeforeTTL,
-//                    hoursTTL = fetchedEntity.hour, // TODO: decide do i STORE hoursTTL or NOT?
                 )
             )
         }.toSet()
