@@ -268,7 +268,7 @@ class RepoPin(
         return PinLogical(
             pinLogicalId = _pinLogicalId,
             editorMark = _editorHash,
-            lamportEpoch = _lamportEpoch, //todo lol, forgot to inject lamport?
+            lamportEpoch = _lamportEpoch,
             expirationTimestamp = _expirationTimestamp,
             pinPhysProps = PinUI(
                 geoPoint = GeoPoint(
@@ -368,11 +368,13 @@ class RepoPin(
     ): Boolean {
         when (validatePin(newPinLogical)) {
             is ValidationResult.Valid -> {
+                //#1 side effect COLD
                 val versionInternalID = pinDao.insertVersion(convertToEntity(newPinLogical))
                 winnerDao.choosePinForRendering(
                     ToBeRenderedPin(newPinLogical.pinLogicalId, versionInternalID)
                 )
 
+                //#2 side effect RADIO
                 val message = if (oldPinLogical == null) {
                     prepCreationProtobuf(newPinLogical)
                 } else {
@@ -501,7 +503,8 @@ class RepoPin(
     suspend fun handleIncomingPinMessage(parsedRawPinMessage: PinMessage) {
 
         // # 00
-        val foundStoredPin = pinDao.getById(parsedRawPinMessage.pinLogicalId)
+//        val foundStoredPin = pinDao.getById(parsedRawPinMessage.pinLogicalId)
+        val foundStoredPin = pinDao.getOneActivePinByLogId(parsedRawPinMessage.pinLogicalId)
 
         // #0 first SEEK for the pin in COLD STORAGE
         val superpositionedPin = when ( foundStoredPin ) {

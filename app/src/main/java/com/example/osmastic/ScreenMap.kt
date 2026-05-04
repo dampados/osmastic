@@ -174,7 +174,8 @@ class StateMapViewModel @Inject constructor(
 
         //#1 construct a new pin
         val newPinLogical = PinLogical(
-            pinLogicalId = SecureRandom().nextInt(1 shl 24),
+//            pinLogicalId = SecureRandom().nextInt(1 shl 24),
+            pinLogicalId = SecureRandom().nextInt(1 shl 28),
             editorMark = fetchedEditorHash,
             expirationTimestamp = calculatedExpTimestamp,
             pinPhysProps = incomingPinUI
@@ -190,7 +191,9 @@ class StateMapViewModel @Inject constructor(
         //#3 COLD+RADIO UPDATE
         // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
         viewModelScope.launch {
-            val validated = repoPin.pushOnePinFurther(newPinLogical)
+//            val validated = repoPin.pushOnePinFurther(newPinLogical)
+            val validated = repoPin.pushPinFurther(null, newPinLogical)
+
             if (!validated) {
                 val faultyPin = PinRemoveInquiry(
                     pinLogicalId = newPinLogical.pinLogicalId,
@@ -262,7 +265,9 @@ class StateMapViewModel @Inject constructor(
         //#2 launch SIDE EFFECTS (repo)
         // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
         viewModelScope.launch {
-            val validated = repoPin.pushOneDeltaFurther(oldFoundPinLogical,newPinLogical)
+//            val validated = repoPin.pushOneDeltaFurther(oldFoundPinLogical,newPinLogical)
+            val validated = repoPin.pushPinFurther(oldFoundPinLogical, newPinLogical)
+
             if (!validated) {
                 val faultyPin = PinRemoveInquiry(
                     pinLogicalId = newPinLogical.pinLogicalId,
