@@ -103,7 +103,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
     }
 
     private fun constructMarkerFromLogicalPin(pin: PinLogical): LabeledMarker {
-        val rotationDegrees = pin.pinPhysProps.rotationByte?.let { it * 360f / 255f }
+        val rotationDegrees = pin.pinPhysProps.rotationByte?.let { it * 360f / 127f }
 
         return LabeledMarker(
             mapView,

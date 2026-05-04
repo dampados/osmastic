@@ -55,8 +55,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 // MODALS IMPORT
 import com.example.osmastic.modal.PinEditDialog
-import kotlin.math.cos
-import kotlin.math.sin
 
 class LabeledMarker(
     mapView: MapView,
@@ -71,7 +69,7 @@ class LabeledMarker(
 //        setAnchor(ANCHOR_CENTER, ANCHOR_BOTTOM) // overridden anyway
         rotation?.let { setRotation(it) }
     }
-    private val textPaint = TextPaint().apply {
+    private val textPaintIcon = TextPaint().apply {
         color = Color.BLACK
         textSize = 48f
         textAlign = Paint.Align.CENTER
@@ -85,7 +83,7 @@ class LabeledMarker(
 //            // LABEL ALWAYS FLAT (counter-rotate)
             canvas.save()
             canvas.rotate(-mapView.mapOrientation, point.x.toFloat(), point.y + gapPx)
-            canvas.drawText(label, point.x.toFloat(), point.y + gapPx, textPaint)
+            canvas.drawText(label, point.x.toFloat(), point.y + gapPx, textPaintIcon)
             canvas.restore()
 //
 //            // DELETE THESE UNDERNEATH vvvvv
