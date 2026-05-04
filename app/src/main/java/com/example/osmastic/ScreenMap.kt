@@ -55,6 +55,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 // MODALS IMPORT
 import com.example.osmastic.modal.PinEditDialog
+import kotlin.math.cos
+import kotlin.math.sin
 
 class LabeledMarker(
     mapView: MapView,
@@ -79,15 +81,27 @@ class LabeledMarker(
 
         if (!shadow) {
             val point = mapView.projection.toPixels(position, null)
-            val gapPx = 20 * mapView.resources.displayMetrics.density
-            // 👇 LABEL ALWAYS FLAT (counter-rotate)
+            val gapPx = 25 * mapView.resources.displayMetrics.density
+//            // LABEL ALWAYS FLAT (counter-rotate)
             canvas.save()
             canvas.rotate(-mapView.mapOrientation, point.x.toFloat(), point.y + gapPx)
             canvas.drawText(label, point.x.toFloat(), point.y + gapPx, textPaint)
             canvas.restore()
+//
+//            // DELETE THESE UNDERNEATH vvvvv
+//            // EXPERIMENTAL
+//            val rotationRad = Math.toRadians((rotation ?: 0f).toDouble())
+//            val offsetX = (gapPx * sin(rotationRad)).toFloat()
+//            val offsetY = (gapPx * cos(rotationRad)).toFloat()
+//
+//            canvas.save()
+//            canvas.rotate(-mapView.mapOrientation, point.x + offsetX, point.y + offsetY)
+//            canvas.drawText(label, point.x + offsetX, point.y + offsetY, textPaint)
+//            canvas.restore()
         }
     }
 }
+
 data class PinRemoveInquiry(
     val pinLogicalId: Int,
     val reachedDB: Boolean,
