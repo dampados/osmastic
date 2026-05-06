@@ -3,6 +3,7 @@
 package com.example.osmastic
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11,7 +12,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
 //new ones:
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.AltRoute
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.automirrored.filled.Feed
+import androidx.compose.material.icons.automirrored.filled.Grading
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.NotListedLocation
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.automirrored.filled.Wysiwyg
+import androidx.compose.material.icons.automirrored.outlined.ArrowBackIos
+import androidx.compose.material.icons.automirrored.rounded.AddToHomeScreen
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.SatelliteAlt
+import androidx.compose.material.icons.filled.ScreenRotationAlt
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -20,7 +47,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.retain.retain
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.osmastic.modal.ModalRenderer
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import kotlinx.coroutines.delay
@@ -32,7 +61,9 @@ import com.example.osmastic.modal.PinEditDialog
 
 @Composable
 fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
-    val stateOfModel by viewModel.mapStateR.collectAsState()
+    val stateOfModel by viewModel.mapStateR.collectAsState() // whole data state of the MAP and PINS (not ui)
+    val uiModalManager = remember { StateUIViewModel() } // mini thingie for the UI, modals, continuation, etc.
+
     var showDialog by remember { mutableStateOf(false) }
     var dialogGeoPoint by remember { mutableStateOf<GeoPoint?>(null) } // thats to teleport geopoint to the CREATION dialog! SCREENMAP -> MODAL
     var dialogPinUI by remember { mutableStateOf<PinUI?>(null) } // thats to teleport geopoint to the UPDATE dialog!        SCREENMAP -> MODAL
@@ -69,6 +100,8 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 coldPins            // ◀️◀️◀️ and return back... yeah
             },
             onTapShortCallback = { context, geoPoint,  ->
+//                uiModalManager.openPinsList()
+//                Log.d("ass", "PIN LIST OPEN")
                 viewModel.constructAndPushPinQuick(geoPoint) // ◀️◀️◀️ and return back... yeah
             },
             onTapLongCallback = { context, geoPoint ->
@@ -249,7 +282,78 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 )
             }
         }
+    } // OLD ROUTER
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(6.dp)
+                .navigationBarsPadding()
+                .imePadding(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            val ROUNDED_PERCENT = 32
+            val ICON_SIZE = 23
+
+            Button(
+                onClick = { uiModalManager.openPinsList() },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(ROUNDED_PERCENT)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Grading,
+                    contentDescription = null,
+                    modifier = Modifier.size(ICON_SIZE.dp)
+                )
+            }
+            Button(
+                onClick = { /* TODO: channels */ },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(ROUNDED_PERCENT)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SatelliteAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(ICON_SIZE.dp)
+                )
+            }
+            Button(
+                onClick = { },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(ROUNDED_PERCENT)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MyLocation,
+                    contentDescription = null,
+                    modifier = Modifier.size(ICON_SIZE.dp)
+                )
+            }
+            Button(
+                onClick = {
+                    // todo ТАК НЕЛЬЗЯ ПЕРЕДЕЛАТЬ НА ШИНЫ СОБЫТИЙ ДЛЯ ПЕРВОГО ЧТЕНИЯ
+                    // todo ТАК НЕЛЬЗЯ ПЕРЕДЕЛАТЬ КНОПКУ НА Launched Effect по изменению СТЕЙТА
+                    osmdroidManager.setViewport(stateOfModel.viewPort.copy(mapBearing = 0.0f))
+                    viewModel.updateViewPort(stateOfModel.viewPort.copy(mapBearing = 0.0f))
+                          },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(ROUNDED_PERCENT)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ScreenRotationAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(ICON_SIZE.dp)
+                )
+            }
+        }
     }
+
+    ModalRenderer(uiModalManager, stateOfModel.pins)
+
+    //                uiModalManager.openPinsList()
+    //                Log.d("ass", "PIN LIST OPEN")
+
 
 } // ScreenMap end
 

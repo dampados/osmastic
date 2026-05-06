@@ -110,66 +110,77 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+//@PreviewScreenSizes
+//@Composable
+//fun OsmasticApp() {
+//    val appViewModel: StateGlobalViewModel = viewModel()
+//    val stateOfModel by appViewModel.uiState.collectAsState()
+//
+//    val mapViewModel: StateMapViewModel = hiltViewModel()  // ← NOT viewModel()
+//
+//    // UI STATE PROPER NAVCONTROLLER IGNORE
+//    val navController = rememberNavController()
+//    val navBackStackEntry by navController.currentBackStackEntryAsState()
+//    val currentDestination = navBackStackEntry?.destination
+//
+//    NavigationSuiteScaffold(
+//        navigationSuiteItems = {
+//            AppDestinations.entries.forEach { destination ->
+//                item(
+//                    icon = { Icon(destination.icon, destination.label) },
+//                    label = { Text(destination.label) },
+//                    selected = currentDestination?.route == destination.name,
+//                    onClick = {
+//                        // ONE LINE: navigate to enum name
+//                        navController.navigate(destination.name) {
+//                            // These 3 lines are the key to keeping your screen state in RAM
+//                            launchSingleTop = true
+//                            restoreState = true
+//                            popUpTo(navController.graph.findStartDestination().id) {
+//                                saveState = true
+//                            }
+//                        }
+//                    }
+//                )
+//            }
+//        }
+//    ) { // innerPadding ->
+//        // 4. NavHost with your 3 screens
+//        NavHost(
+//            navController = navController,
+//            startDestination = AppDestinations.MAP.name,
+//            modifier = Modifier.fillMaxSize()
+//        ) {
+//            // Each screen by enum name
+//            composable(AppDestinations.PINLIST.name) {
+//                ScreenLibrary(Modifier.fillMaxSize())
+//            }
+//            composable(AppDestinations.MAP.name) {
+//                ScreenMap(viewModel = mapViewModel, Modifier.fillMaxSize())
+//            }
+//            composable(AppDestinations.CHANNELS.name) {
+//                ScreenChannels(Modifier.fillMaxSize())
+//            }
+//        }
+//    }
+//
+//} //OSMASTIC APP CLASS FINISHING BRACKET
+
+
+// _____________________________________________________ //
 @PreviewScreenSizes
 @Composable
 fun OsmasticApp() {
     val appViewModel: StateGlobalViewModel = viewModel()
     val stateOfModel by appViewModel.uiState.collectAsState()
 
-    // STATES !!! keep em all on the same level and context as NS:
-//    val mapViewModel: StateMapViewModel = viewModel() // MAP
     val mapViewModel: StateMapViewModel = hiltViewModel()  // ← NOT viewModel()
-//    val libraryViewModel: StateLibraryViewModel = viewModel()   // later
-//    val channelsViewModel: StateChannelsViewModel = viewModel() // later
 
-    // UI STATE PROPER NAVCONTROLLER IGNORE
-    val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
 
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            AppDestinations.entries.forEach { destination ->
-                item(
-                    icon = { Icon(destination.icon, destination.label) },
-                    label = { Text(destination.label) },
-                    selected = currentDestination?.route == destination.name,
-                    onClick = {
-                        // ONE LINE: navigate to enum name
-                        navController.navigate(destination.name) {
-                            // These 3 lines are the key to keeping your screen state in RAM
-                            launchSingleTop = true
-                            restoreState = true
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                        }
-                    }
-                )
-            }
-        }
-    ) { // innerPadding ->
-        // 4. NavHost with your 3 screens
-        NavHost(
-            navController = navController,
-            startDestination = AppDestinations.MAP.name,
-//            modifier = Modifier.padding(innerPadding)
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Each screen by enum name
-            composable(AppDestinations.PINLIST.name) {
-                ScreenLibrary(Modifier.fillMaxSize())
-            }
-            composable(AppDestinations.MAP.name) {
-                ScreenMap(viewModel = mapViewModel, Modifier.fillMaxSize())
-            }
-            composable(AppDestinations.CHANNELS.name) {
-                ScreenChannels(Modifier.fillMaxSize())
-            }
-        }
-    }
+    ScreenMap(viewModel = mapViewModel, Modifier.fillMaxSize())
 
 } //OSMASTIC APP CLASS FINISHING BRACKET
+// _____________________________________________________ //
 
 enum class AppDestinations(
     val label: String,
