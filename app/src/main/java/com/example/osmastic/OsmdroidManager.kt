@@ -4,6 +4,7 @@ import android.content.Context
 import android.widget.Toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.events.MapListener
@@ -16,6 +17,8 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 // ♻️🧭♻️🧭♻️🧭 MAP MANAGER!!! ♻️🧭♻️🧭♻️🧭
 class OsmdroidManager(private val appContext: Context,                 // CLASS WRAPPER AROUND THE MapView !!!
@@ -29,6 +32,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
 
     // TODO: GLOBAL - ADD SHARED COROUTINE SCOPE! THESE Dispatchers.Main - MONSTROUS
     private val mapView: MapView // OUTSOURCED MAPVIEW !!!
+    private lateinit var myLocationOverlay: MyLocationNewOverlay
 
     init { // FACTORY ONE TIME INSTANTIATION
         mapView = MapView(appContext).apply {
@@ -42,6 +46,13 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
             val rotationOverlay = RotationGestureOverlay(this)
             rotationOverlay.isEnabled = true
             overlays.add(rotationOverlay)
+
+            myLocationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(appContext), this).apply {
+                disableMyLocation()
+                disableFollowLocation()
+                isDrawAccuracyEnabled = true
+                overlays.add(this)
+            }
             // 🍰🍰🍰 OVERLAYS SECTION 🍰🍰🍰
 
             // 🤙🤙🤙 CALLBACK SECTION 🤙🤙🤙
@@ -195,6 +206,60 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
         //#2 PUSH MANY
         pushManyPinsIntoPhysicalView(incomingPins)
     }
+
+    fun centerOnMyLocation(onResult: (Boolean, GeoPoint?) -> Unit) {
+        if (!myLocationOverlay.isMyLocationEnabled) {
+            myLocationOverlay.enableMyLocation()
+        }
+
+        // Таймаут 10 секунд
+        val timeoutJob = CoroutineScope(Dispatchers.Main).launch {
+            delay(10000)
+            if (myLocationOverlay.myLocation == null) {
+                myLocationOverlay.disableMyLocation()
+                onResult(false, null)
+            }
+        }
+
+        myLocationOverlay.runOnFirstFix {
+            timeoutJob.cancel()
+            val geoPoint = myLocationOverlay.myLocation
+            if (geoPoint != null) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    mapView.controller.animateTo(geoPoint)
+                }
+//                mapView.controller.animateTo(geoPoint)
+                onResult(true, geoPoint)
+            } else {
+                onResult(false, null)
+            }
+            // TODO решить ВЫКЛЮЧАТЬ ИЛИ НЕТ
+//            myLocationOverlay.disableMyLocation()
+            myLocationOverlay.disableFollowLocation()
+        }
+    }
+
+    fun enableGpsAndCenterOn(onTriedPositioning: (Boolean) -> Unit) {
+        if (!myLocationOverlay.isMyLocationEnabled) {
+            myLocationOverlay.enableMyLocation()
+        }
+        myLocationOverlay.runOnFirstFix {
+            val location = myLocationOverlay.myLocation
+            CoroutineScope(Dispatchers.Main).launch {
+                if (location != null) {
+                    mapView.controller.animateTo(location)
+                    onTriedPositioning(true)
+                } else {
+                    onTriedPositioning(false)
+                }
+            }
+        }
+    }
+
+    fun disableGpsReal() {
+        myLocationOverlay.disableMyLocation()
+    }
+
 
     // 🎊🎊🎊 FUN SECTION 🎊🎊🎊
 }

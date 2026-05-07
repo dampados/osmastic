@@ -22,23 +22,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.AltRoute
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.automirrored.filled.CompareArrows
-import androidx.compose.material.icons.automirrored.filled.Feed
 import androidx.compose.material.icons.automirrored.filled.Grading
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.automirrored.filled.NotListedLocation
-import androidx.compose.material.icons.automirrored.filled.Redo
-import androidx.compose.material.icons.automirrored.filled.ShowChart
-import androidx.compose.material.icons.automirrored.filled.Wysiwyg
-import androidx.compose.material.icons.automirrored.outlined.ArrowBackIos
-import androidx.compose.material.icons.automirrored.rounded.AddToHomeScreen
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.SatelliteAlt
 import androidx.compose.material.icons.filled.ScreenRotationAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -46,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.retain.retain
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -62,7 +55,8 @@ import com.example.osmastic.modal.PinEditDialog
 @Composable
 fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     val stateOfModel by viewModel.mapStateR.collectAsState() // whole data state of the MAP and PINS (not ui)
-    val uiModalManager = remember { StateUIViewModel() } // mini thingie for the UI, modals, continuation, etc.
+    val uiStateManager = remember { StateUIViewModel() } // mini thingie for the UI, modals, continuation, etc.
+    val uiState by uiStateManager.uiStateR.collectAsState()
 
     var showDialog by remember { mutableStateOf(false) }
     var dialogGeoPoint by remember { mutableStateOf<GeoPoint?>(null) } // thats to teleport geopoint to the CREATION dialog! SCREENMAP -> MODAL
@@ -296,10 +290,10 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             val ROUNDED_PERCENT = 32
-            val ICON_SIZE = 23
+            val ICON_SIZE = 25
 
             Button(
-                onClick = { uiModalManager.openPinsList() },
+                onClick = { uiStateManager.openPinsList() },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(ROUNDED_PERCENT)
             ) {
@@ -310,7 +304,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 )
             }
             Button(
-                onClick = { uiModalManager.openChannelList() },
+                onClick = { uiStateManager.openChannelList() },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(ROUNDED_PERCENT)
             ) {
@@ -321,14 +315,35 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 )
             }
             Button(
-                onClick = { },
+                onClick = {
+
+                    if (uiState.isGpsActive) {
+                        osmdroidManager.disableGpsReal()
+                        uiStateManager.disableGpsUI()
+
+                    } else {
+                        uiStateManager.enableGpsUI()
+                        uiStateManager.enableGpsInProgressUI()
+
+                        osmdroidManager.enableGpsAndCenterOn { success ->
+                            uiStateManager.disableGpsInProgressUI()
+                            if (!success) {
+                                Toast.makeText(ctx, "GPS isn't ready", Toast.LENGTH_SHORT).show()
+                                uiStateManager.disableGpsUI()
+                            }
+
+                        }
+                    }
+                },
+                enabled = !uiState.isGpsInProgress,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(ROUNDED_PERCENT)
             ) {
                 Icon(
                     imageVector = Icons.Default.MyLocation,
+                    tint = if (uiState.isGpsActive) Color.Green else LocalContentColor.current,
+                    modifier = Modifier.size(ICON_SIZE.dp),
                     contentDescription = null,
-                    modifier = Modifier.size(ICON_SIZE.dp)
                 )
             }
             Button(
@@ -347,12 +362,23 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                     modifier = Modifier.size(ICON_SIZE.dp)
                 )
             }
-        }
+            Button(
+                onClick = { },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(ROUNDED_PERCENT)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Layers,
+                    modifier = Modifier.size(ICON_SIZE.dp),
+                    contentDescription = null,
+                    )
+            }
+        } // buttons BOX finish
     }
 
     // NEW UI ROUTER
     ModalRenderer(
-        uiModalManager,
+        uiStateManager,
         stateOfModel.pins,
         { pin ->
             //todo НЕПРАВИЛЬНО, сперва нужна проверка на существование МАРКЕРА.... хотя зачем, по логике же перемещаемся.

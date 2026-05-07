@@ -11,8 +11,9 @@ sealed class ModalType {
 }
 
 data class StateUIModel(
-    val activeModal: ModalType? = null
-
+    val activeModal: ModalType? = null,
+    val isGpsActive: Boolean = false,
+    val isGpsInProgress: Boolean = false,
 )
 
 class StateUIViewModel {
@@ -20,9 +21,25 @@ class StateUIViewModel {
     val uiStateR: StateFlow<StateUIModel> = _uiStateRW.asStateFlow()
 
 
-
-
     //--- public funcs ---//
+
+    fun enableGpsUI() {
+        _uiStateRW.update { it.copy(isGpsActive = true) }
+    }
+
+    fun disableGpsUI() {
+        _uiStateRW.update { it.copy(isGpsActive = false) }
+    }
+
+    fun enableGpsInProgressUI() {
+        _uiStateRW.update { it.copy(isGpsInProgress = true) }
+    }
+
+    fun disableGpsInProgressUI() {
+        _uiStateRW.update { it.copy(isGpsInProgress = false) }
+    }
+
+
     fun openPinsList() {
         _uiStateRW.update { it.copy(activeModal = ModalType.PinsList) }
     }
