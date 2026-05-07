@@ -284,6 +284,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         }
     } // OLD ROUTER
 
+
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -309,7 +310,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 )
             }
             Button(
-                onClick = { /* TODO: channels */ },
+                onClick = { uiModalManager.openChannelList() },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(ROUNDED_PERCENT)
             ) {
@@ -349,8 +350,19 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         }
     }
 
-    ModalRenderer(uiModalManager, stateOfModel.pins)
+    // NEW UI ROUTER
+    ModalRenderer(
+        uiModalManager,
+        stateOfModel.pins,
+        { pin ->
+            //todo НЕПРАВИЛЬНО, сперва нужна проверка на существование МАРКЕРА.... хотя зачем, по логике же перемещаемся.
+            // TODO: СИЛЬНО ПОДУМАТЬ!!!
+            osmdroidManager.getMapView().controller.animateTo(pin.pinPhysProps.geoPoint)
+            viewModel.updateViewPort(stateOfModel.viewPort.copy(mapCenter = pin.pinPhysProps.geoPoint))
+        }
+    )
 
+//    osmdroidManager.animateTo(pin.pinPhysProps.geoPoint)
     //                uiModalManager.openPinsList()
     //                Log.d("ass", "PIN LIST OPEN")
 

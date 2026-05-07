@@ -7,10 +7,12 @@ import kotlinx.coroutines.flow.update
 
 sealed class ModalType {
     object PinsList : ModalType()
+    object ChannelsList : ModalType()
 }
 
 data class StateUIModel(
     val activeModal: ModalType? = null
+
 )
 
 class StateUIViewModel {
@@ -23,6 +25,10 @@ class StateUIViewModel {
     //--- public funcs ---//
     fun openPinsList() {
         _uiStateRW.update { it.copy(activeModal = ModalType.PinsList) }
+    }
+
+    fun openChannelList() {
+        _uiStateRW.update { it.copy(activeModal = ModalType.ChannelsList) }
     }
 
     fun closeAnyModal() {

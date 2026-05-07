@@ -24,7 +24,8 @@ import com.example.osmastic.StateUIViewModel
 @Composable
 fun PinListDialog(
     manager: StateUIViewModel,
-    pins: Set<PinLogical>
+    pins: Set<PinLogical>,
+    onPinRowClicked: (PinLogical) -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = { manager.closeAnyModal() }
@@ -34,6 +35,7 @@ fun PinListDialog(
                 PinListItem(
                     pin = pin,
                     onItemClick = {
+                        onPinRowClicked(pin)
                         manager.closeAnyModal()
                         // TODO: анимация к geoPoint
                     },
@@ -76,14 +78,14 @@ private fun PinListItem(
         Text(
             text = pin.pinLogicalId.toString()
         )
-        // Конфликт-слот (кликабельный индикатор)
+        // Конфликт (кликабельный индикатор или кнопка?)
         Box(
             modifier = Modifier
                 .size(24.dp)
                 .clickable { onConflictClick() }
         ) {
             // TODO: пока крестик, потом условный рендеринг (✔ / ✗)
-            Text("✔")
+            Text(" ✔ ")
         }
     }
 }
