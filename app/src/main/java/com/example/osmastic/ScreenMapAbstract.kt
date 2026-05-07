@@ -211,7 +211,7 @@ class StateMapViewModel @Inject constructor(
             }
         }
 
-        val newPinLogical = newPinLogicalHalfBaked.copy(
+        val newerPinLogical = newPinLogicalHalfBaked.copy(
             pinPhysProps = newPinLogicalHalfBaked.pinPhysProps.copy(
                 minutesTTL = recalculatedMinutesTTL // MINUTES FROM NOW ON | two bytes max
             )
@@ -219,15 +219,15 @@ class StateMapViewModel @Inject constructor(
 
         //#1 update MVU
         _mapStateRW.update { current ->
-            val pinsReconstructed = current.pins.mapTo(mutableSetOf()) { oldPinLogical ->
-                if (oldPinLogical.pinLogicalId == newPinLogical.pinLogicalId) {
-                    newPinLogical
+            val pinsUpdated = current.pins.mapTo(mutableSetOf()) { currentOldPin ->
+                if (currentOldPin.pinLogicalId == newerPinLogical.pinLogicalId) {
+                    newerPinLogical
                 } else {
-                    oldPinLogical
+                    currentOldPin
                 }
             }
             current.copy(
-                pins = pinsReconstructed,
+                pins = pinsUpdated,
                 //todo НУЖНО ПЕРЕХОДИТЬ НА ШИНУ ЗДЕСЬ ТОЖЕ, реакция от osmdroid не ДОЛЖНА ЖДАТЬ ОТВЕТА, не двунаправленный поток, а два однонаправленных нужно!
 //                pinUpdateInquiries = current.pinUpdateInquiries + newPinLogical,
             )
@@ -237,24 +237,41 @@ class StateMapViewModel @Inject constructor(
         // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
         viewModelScope.launch {
 //            val validated = repoPin.pushOneDeltaFurther(oldFoundPinLogical,newPinLogical)
-            val validated = repoPin.pushPinFurther(oldFoundPinLogical, newPinLogical)
+            val validated = repoPin.pushPinFurther(oldFoundPinLogical, newerPinLogical)
 
             if (!validated) {
-                val faultyPin = PinRemoveInquiry(
-                    pinLogicalId = newPinLogical.pinLogicalId,
-                    reachedDB = false,
-                )
+
+                // TODO ПРАВИЛЬНАЯ ПЕРЕДЕЛКА ТУТ: надо так же делать выше!
                 _mapStateRW.update { current ->
+                    val pinsRolledBack = current.pins.mapTo(mutableSetOf()) { currentPin ->
+                        if (currentPin.pinLogicalId == oldFoundPinLogical.pinLogicalId) {
+                            oldFoundPinLogical
+                        } else {
+                            currentPin
+                        }
+                    }
                     current.copy(
-                        pinRemoveInquiries = current.pinRemoveInquiries + faultyPin
+                        pins = pinsRolledBack,
+                        pinUpdateInquiries = current.pinUpdateInquiries + oldFoundPinLogical,
                     )
                 }
-            }
+
+//                val faultyPin = PinRemoveInquiry(
+//                    pinLogicalId = newPinLogical.pinLogicalId,
+//                    reachedDB = false,
+//                )
+//                _mapStateRW.update { current ->
+//                    current.copy(
+//                        pinRemoveInquiries = current.pinRemoveInquiries + faultyPin
+//                    )
+//                }
+
+            } // !validated finish
         }
         // 🚚🚚🚚 SIDE EFFECTS ASYNC SECTION 🚚🚚🚚
 
         //#999 return NEW pin LOGICAL to visual/physical
-        return newPinLogical
+        return newerPinLogical
     }
 
     private fun pushNewPinFromTop(incomingPinLogical: PinLogical) {
