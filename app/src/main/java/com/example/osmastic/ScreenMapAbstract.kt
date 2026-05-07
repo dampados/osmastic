@@ -228,7 +228,8 @@ class StateMapViewModel @Inject constructor(
             }
             current.copy(
                 pins = pinsReconstructed,
-                pinUpdateInquiries = current.pinUpdateInquiries + newPinLogical,
+                //todo НУЖНО ПЕРЕХОДИТЬ НА ШИНУ ЗДЕСЬ ТОЖЕ, реакция от osmdroid не ДОЛЖНА ЖДАТЬ ОТВЕТА, не двунаправленный поток, а два однонаправленных нужно!
+//                pinUpdateInquiries = current.pinUpdateInquiries + newPinLogical,
             )
         }
 
