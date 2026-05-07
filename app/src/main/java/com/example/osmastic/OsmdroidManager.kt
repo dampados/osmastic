@@ -6,16 +6,24 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
+import org.osmdroid.library.BuildConfig
+import org.osmdroid.tileprovider.MapTileProviderBasic
+import org.osmdroid.tileprovider.constants.OpenStreetMapTileProviderConstants
+import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.util.MapTileIndex
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.TilesOverlay
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
@@ -37,7 +45,43 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
     init { // FACTORY ONE TIME INSTANTIATION
         mapView = MapView(appContext).apply {
             // 🚧🚧🚧 CONFIG 🚧🚧🚧
-            setTileSource(TileSourceFactory.MAPNIK)
+
+            Configuration.getInstance().setUserAgentValue("zalupa.zalupa.zalupa")
+
+            // < сюда пихать кастомные тайлы.... >
+
+//            val cartoVoyager = XYTileSource(
+//                "CartoDBVoyager", 0, 19, 256, ".png",
+//                arrayOf(
+//                    "https://a.basemaps.cartocdn.com/rastertiles/voyager/",
+//                    "https://b.basemaps.cartocdn.com/rastertiles/voyager/",
+//                    "https://c.basemaps.cartocdn.com/rastertiles/voyager/",
+//                    "https://d.basemaps.cartocdn.com/rastertiles/voyager/"
+//                )
+//            )
+//            setTileSource(cartoVoyager)
+
+            val voyagerBase = XYTileSource("VoyagerNoLabels", 0, 19, 256, ".png",
+                arrayOf("https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/",
+                    "https://b.basemaps.cartocdn.com/rastertiles/voyager_nolabels/",
+                    "https://c.basemaps.cartocdn.com/rastertiles/voyager_nolabels/",
+                    "https://d.basemaps.cartocdn.com/rastertiles/voyager_nolabels/"))
+
+            val labelsSource = XYTileSource("VoyagerLabels", 0, 19, 256, ".png",
+                arrayOf("https://a.basemaps.cartocdn.com/rastertiles/voyager_only_labels/",
+                    "https://b.basemaps.cartocdn.com/rastertiles/voyager_only_labels/",
+                    "https://c.basemaps.cartocdn.com/rastertiles/voyager_only_labels/",
+                    "https://d.basemaps.cartocdn.com/rastertiles/voyager_only_labels/"))
+
+            setTileSource(voyagerBase)
+
+            // Добавляем слой с надписями
+            overlayManager.add(TilesOverlay(MapTileProviderBasic(appContext, labelsSource), appContext))
+
+            invalidate()
+
+//            setTileSource(TileSourceFactory.MAPNIK)
+
             setMultiTouchControls(true)
             setUseDataConnection(true)
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
