@@ -8,12 +8,16 @@ import kotlinx.coroutines.flow.update
 sealed class ModalType {
     object PinsList : ModalType()
     object ChannelsList : ModalType()
+    object Layers : ModalType()
 }
 
 data class StateUIModel(
     val activeModal: ModalType? = null,
     val isGpsActive: Boolean = false,
-    val isGpsInProgress: Boolean = false,
+    val isGpsInSwitchingStage: Boolean = false,
+
+    val cachingZoomSliderValue: Float = 12f,
+    val isDownloading: Boolean = false,
 )
 
 class StateUIViewModel {
@@ -32,12 +36,30 @@ class StateUIViewModel {
     }
 
     fun enableGpsInProgressUI() {
-        _uiStateRW.update { it.copy(isGpsInProgress = true) }
+        _uiStateRW.update { it.copy(isGpsInSwitchingStage = true) }
     }
 
     fun disableGpsInProgressUI() {
-        _uiStateRW.update { it.copy(isGpsInProgress = false) }
+        _uiStateRW.update { it.copy(isGpsInSwitchingStage = false) }
     }
+
+    fun setCacheZoom(zoom: Float) {
+        _uiStateRW.update { it.copy(cachingZoomSliderValue = zoom) }
+    }
+
+    fun toggleDownloadUI() {
+//        _uiStateRW.update { it.copy(isDownloading = !uiStateR.value.isDownloading) } //ebat ya degenerat
+        _uiStateRW.update { it.copy(isDownloading = !it.isDownloading) }
+    }
+
+    fun startDownloadUI() {
+        _uiStateRW.update { it.copy(isDownloading = true) }
+    }
+
+    fun stopDownloadUI() {
+        _uiStateRW.update { it.copy(isDownloading = false) }
+    }
+
 
 
     fun openPinsList() {
@@ -46,6 +68,10 @@ class StateUIViewModel {
 
     fun openChannelList() {
         _uiStateRW.update { it.copy(activeModal = ModalType.ChannelsList) }
+    }
+
+    fun openLayers() {
+        _uiStateRW.update { it.copy(activeModal = ModalType.Layers)}
     }
 
     fun closeAnyModal() {

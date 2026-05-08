@@ -11,14 +11,11 @@ import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
-import org.osmdroid.library.BuildConfig
 import org.osmdroid.tileprovider.MapTileProviderBasic
-import org.osmdroid.tileprovider.constants.OpenStreetMapTileProviderConstants
-import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.cachemanager.CacheManager
 import org.osmdroid.tileprovider.tilesource.XYTileSource
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
-import org.osmdroid.util.MapTileIndex
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
@@ -302,6 +299,82 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
 
     fun disableGpsReal() {
         myLocationOverlay.disableMyLocation()
+    }
+
+
+//    private var currentTask: CacheManager.CacheManagerTask? = null
+//
+//    fun startDownload(
+//        bounds: BoundingBox,
+//        minZoom: Int,
+//        maxZoom: Int,
+//        onComplete: (Boolean) -> Unit
+//    ) {
+//        // Отменяем предыдущую задачу, если была
+//        stopDownload()
+//
+//        val cacheManager = CacheManager(mapView)
+//        currentTask = cacheManager.downloadAreaAsync(
+//            appContext,
+//            bounds,
+//            minZoom,
+//            maxZoom,
+//            object : CacheManager.CacheManagerCallback {
+//                override fun onTaskComplete() {
+//                    currentTask = null
+//                    onComplete(true)
+//                }
+//                override fun onTaskFailed(errors: Int) {
+//                    currentTask = null
+//                    onComplete(false)
+//                }
+//                override fun updateProgress(progress: Int, currentZoom: Int, zoomMin: Int, zoomMax: Int) {}
+//                override fun downloadStarted() {}
+//                override fun setPossibleTilesInArea(total: Int) {}
+//            }
+//        )
+//    }
+//
+//    fun stopDownload() {
+//        currentTask?.cancel(true)  // ← отменяем задачу
+//        currentTask = null
+//    }
+
+    private var currentCacheManager: CacheManager? = null
+
+    fun startDownload(
+        bounds: BoundingBox,
+        minZoom: Int,
+        maxZoom: Int,
+        onComplete: (Boolean) -> Unit
+    ) {
+        stopAllDownloads() // CANCEL EVERYTHING
+
+        val cacheManager = CacheManager(mapView)
+        currentCacheManager = cacheManager
+
+//        cacheManager.downloadAreaAsync(
+        cacheManager.downloadAreaAsyncNoUI(
+            appContext, bounds, minZoom, maxZoom,
+            object : CacheManager.CacheManagerCallback {
+                override fun onTaskComplete() {
+                    currentCacheManager = null
+                    onComplete(true)
+                }
+                override fun onTaskFailed(errors: Int) {
+                    currentCacheManager = null
+                    onComplete(false)
+                }
+                override fun updateProgress(progress: Int, currentZoom: Int, zoomMin: Int, zoomMax: Int) {}
+                override fun downloadStarted() {}
+                override fun setPossibleTilesInArea(total: Int) {}
+            }
+        )
+    }
+
+    fun stopAllDownloads() {
+        currentCacheManager?.cancelAllJobs()
+        currentCacheManager = null
     }
 
 

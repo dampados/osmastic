@@ -61,11 +61,11 @@ fun PinEditDialog(
                 var pinUnderConstruction by remember { mutableStateOf(pinFromPhysical) }
 
                 TabRow(selectedTabIndex = selectedTab) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        text = { Text("🧭") }
-                    )
+//                    Tab(
+//                        selected = selectedTab == 0,
+//                        onClick = { selectedTab = 0 },
+//                        text = { Text("🧭") }
+//                    )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
@@ -95,10 +95,10 @@ fun PinEditDialog(
                 }
 
                 when (selectedTab) {
+//                    0 -> {
+//                        Text("Position update is not yet supported (｡•́︿•̀｡)")
+//                    }
                     0 -> {
-                        Text("Position update is not yet supported (｡•́︿•̀｡)")
-                    }
-                    1 -> {
                         OutlinedTextField(
                             value = pinUnderConstruction.iconUnicode,
                             onValueChange = {
@@ -107,7 +107,7 @@ fun PinEditDialog(
                             label = { Text("Emoji") }
                         )
                     }
-                    2 -> {
+                    1 -> {
                         OutlinedTextField(
                             value = pinUnderConstruction.label,
                             onValueChange = {
@@ -131,7 +131,7 @@ fun PinEditDialog(
 //                            steps = 359
 //                        )
 //                    }
-                    3 -> {
+                    2 -> {
                         val rotationSteps = 127  // we fitting single byte for protobuf! 0-126 maps to 0-360
                         val rotationInDegs = ((pinUnderConstruction.rotationByte ?: 0) * (360f / rotationSteps)).toInt()
                         Text("Rotation: ${rotationInDegs}°")
@@ -147,7 +147,7 @@ fun PinEditDialog(
                             steps = rotationSteps - 1
                         )
                     }
-                    4 -> {
+                    3 -> {
                         Switch(
                             checked = pinUnderConstruction.isHiddenBeforeTTL,
                             onCheckedChange = {
@@ -175,7 +175,7 @@ fun PinEditDialog(
 //                    }
 
 
-                    5 -> {
+                    4 -> {
                         val maxMinutes = 16383
                         var ttl by remember { mutableStateOf(pinUnderConstruction.minutesTTL.coerceIn(0, maxMinutes)) }
 

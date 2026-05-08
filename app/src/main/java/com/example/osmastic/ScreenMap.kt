@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.ScreenRotationAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,9 +53,9 @@ import com.example.osmastic.modal.PinEditDialog
 
 @Composable
 fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
-    val stateOfModel by viewModel.mapStateR.collectAsState() // whole data state of the MAP and PINS (not ui)
+    val mapStateCollected by viewModel.mapStateR.collectAsState() // whole data state of the MAP and PINS (not ui)
     val uiStateManager = remember { StateUIViewModel() } // mini thingie for the UI, modals, continuation, etc.
-    val uiState by uiStateManager.uiStateR.collectAsState()
+    val uiStateCollected by uiStateManager.uiStateR.collectAsState()
 
     var showDialog by remember { mutableStateOf(false) }
     var dialogGeoPoint by remember { mutableStateOf<GeoPoint?>(null) } // thats to teleport geopoint to the CREATION dialog! SCREENMAP -> MODAL
@@ -104,7 +103,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             },
             onPinClick = { context, pinLogicalId ->
 
-                stateOfModel.pins.find { it.pinLogicalId == pinLogicalId }?.let { foundPin ->
+                mapStateCollected.pins.find { it.pinLogicalId == pinLogicalId }?.let { foundPin ->
                     val updatedPinUI = showPinUpdateModal(foundPin.pinPhysProps)    // 🛑🛑🛑  --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type 🛑🛑🛑
                     viewModel.updatePinFromBottom(foundPin, updatedPinUI) // ◀️◀️◀️ and return back... yeah
                 } ?: run {
@@ -118,13 +117,13 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     // 🎣🎣🎣 EFFECTS BLOCK 🎣🎣🎣
     // ♻️♻️♻️ GC ♻️♻️♻️
     // TOP -> BOTTOM REACTION on MVU STATE CHANCGED GRANULAR = invalidPinIds
-    LaunchedEffect(stateOfModel.pinRemoveInquiries) {
+    LaunchedEffect(mapStateCollected.pinRemoveInquiries) {
 
-        if (stateOfModel.pinRemoveInquiries.isNotEmpty()) {
+        if (mapStateCollected.pinRemoveInquiries.isNotEmpty()) {
             delay(5000) //  TODO DEBUG, visualising, remove later
 
             // #0 prep for bulk - snapshot ITS IMPORTANT to catch the state HERE
-            val pinRemoveInquiriesSnapshot = stateOfModel.pinRemoveInquiries
+            val pinRemoveInquiriesSnapshot = mapStateCollected.pinRemoveInquiries
 
             //#1 remove from physical FIRST! WHY? bc physical is most unreliable in
             //our case! ROOM is local sqlite3 file, super relibale
@@ -165,7 +164,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             val nowTimestamp = System.currentTimeMillis()
 
             // make Set of inquiries from pin.pinLogicalId of those pins that are expired!
-            val expiredInquiries = stateOfModel.pins
+            val expiredInquiries = mapStateCollected.pins
                 .filter { pin ->
                     pin.expirationTimestamp != 0L &&
                             pin.expirationTimestamp <= nowTimestamp
@@ -180,17 +179,17 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
 
             if (expiredInquiries.isNotEmpty()) {
                 // Get current inquiries, add new ones, replace all
-                val currentInquiries = stateOfModel.pinRemoveInquiries
+                val currentInquiries = mapStateCollected.pinRemoveInquiries
                 val updatedInquiries = currentInquiries + expiredInquiries
                 viewModel.replaceInvalidPinIds(updatedInquiries)
             }
 //            Toast.makeText(ctx, "INVALIDATOR $nowTimestamp", Toast.LENGTH_SHORT).show() //TODO: invalidator TOAST
         }
     }
-    LaunchedEffect(stateOfModel.pinRenderInquiries) { // RENDER!
+    LaunchedEffect(mapStateCollected.pinRenderInquiries) { // RENDER!
 
-        if (stateOfModel.pinRenderInquiries.isNotEmpty()) {
-            val pinRenderInquiriesSnapshot = stateOfModel.pinRenderInquiries // SNAPSHOT OF THE STATE!
+        if (mapStateCollected.pinRenderInquiries.isNotEmpty()) {
+            val pinRenderInquiriesSnapshot = mapStateCollected.pinRenderInquiries // SNAPSHOT OF THE STATE!
             osmdroidManager.pushManyPinsIntoPhysicalView(pinRenderInquiriesSnapshot) // RENDER!
             viewModel.subtractFromRenderInquiries(pinRenderInquiriesSnapshot) // SUBTRACT SNAPSHOT FROM CURRENT STATE!
 
@@ -198,10 +197,10 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         }
 
     }
-    LaunchedEffect(stateOfModel.pinUpdateInquiries) { // RE-RENDER!
+    LaunchedEffect(mapStateCollected.pinUpdateInquiries) { // RE-RENDER!
 
-        if (stateOfModel.pinUpdateInquiries.isNotEmpty()) {
-            val pinUpdateInquiriesSnapshot = stateOfModel.pinUpdateInquiries // SNAPSHOT OF THE STATE!
+        if (mapStateCollected.pinUpdateInquiries.isNotEmpty()) {
+            val pinUpdateInquiriesSnapshot = mapStateCollected.pinUpdateInquiries // SNAPSHOT OF THE STATE!
             osmdroidManager.updateManyPinsInsidePhysicalView(pinUpdateInquiriesSnapshot)// RE-RENDER!
             viewModel.subtractFromUpdateInquiries(pinUpdateInquiriesSnapshot) // SUBTRACT SNAPSHOT FROM CURRENT STATE!
 
@@ -231,12 +230,12 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Zoom: ${stateOfModel.viewPort.mapZoom}", fontSize = 14.sp)
-            Text("${stateOfModel.viewPort.mapCenter}", fontSize = 14.sp)
-            Text("${stateOfModel.viewPort.mapBearing}", fontSize = 14.sp)
-            Text("${stateOfModel.pinRemoveInquiries}", fontSize = 15.sp)
-            Text("${stateOfModel.pinRenderInquiries}", fontSize = 15.sp)
-            Text("${stateOfModel.pins}", fontSize = 8.sp)
+            Text("Zoom: ${mapStateCollected.viewPort.mapZoom}", fontSize = 14.sp)
+            Text("${mapStateCollected.viewPort.mapCenter}", fontSize = 14.sp)
+            Text("${mapStateCollected.viewPort.mapBearing}", fontSize = 14.sp)
+            Text("${mapStateCollected.pinRemoveInquiries}", fontSize = 15.sp)
+            Text("${mapStateCollected.pinRenderInquiries}", fontSize = 15.sp)
+            Text("${mapStateCollected.pins}", fontSize = 8.sp)
         }
     } // Box end
 
@@ -317,7 +316,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             Button(
                 onClick = {
 
-                    if (uiState.isGpsActive) {
+                    if (uiStateCollected.isGpsActive) {
                         osmdroidManager.disableGpsReal()
                         uiStateManager.disableGpsUI()
 
@@ -335,13 +334,13 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                         }
                     }
                 },
-                enabled = !uiState.isGpsInProgress,
+                enabled = !uiStateCollected.isGpsInSwitchingStage,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(ROUNDED_PERCENT)
             ) {
                 Icon(
                     imageVector = Icons.Default.MyLocation,
-                    tint = if (uiState.isGpsActive) Color.Green else LocalContentColor.current,
+                    tint = if (uiStateCollected.isGpsActive) Color.Green else LocalContentColor.current,
                     modifier = Modifier.size(ICON_SIZE.dp),
                     contentDescription = null,
                 )
@@ -350,8 +349,8 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 onClick = {
                     // todo ТАК НЕЛЬЗЯ ПЕРЕДЕЛАТЬ НА ШИНЫ СОБЫТИЙ ДЛЯ ПЕРВОГО ЧТЕНИЯ
                     // todo ТАК НЕЛЬЗЯ ПЕРЕДЕЛАТЬ КНОПКУ НА Launched Effect по изменению СТЕЙТА
-                    osmdroidManager.setViewport(stateOfModel.viewPort.copy(mapBearing = 0.0f))
-                    viewModel.updateViewPort(stateOfModel.viewPort.copy(mapBearing = 0.0f))
+                    osmdroidManager.setViewport(mapStateCollected.viewPort.copy(mapBearing = 0.0f))
+                    viewModel.updateViewPort(mapStateCollected.viewPort.copy(mapBearing = 0.0f))
                           },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(ROUNDED_PERCENT)
@@ -363,7 +362,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 )
             }
             Button(
-                onClick = { },
+                onClick = { uiStateManager.openLayers() },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(ROUNDED_PERCENT)
             ) {
@@ -379,19 +378,48 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     // NEW UI ROUTER
     ModalRenderer(
         uiStateManager,
-        stateOfModel.pins,
-        { pin ->
+        pins = mapStateCollected.pins,
+        onPinRowClicked = { pin ->
             //todo НЕПРАВИЛЬНО, сперва нужна проверка на существование МАРКЕРА.... хотя зачем, по логике же перемещаемся.
             // TODO: СИЛЬНО ПОДУМАТЬ!!!
             osmdroidManager.getMapView().controller.animateTo(pin.pinPhysProps.geoPoint)
-            viewModel.updateViewPort(stateOfModel.viewPort.copy(mapCenter = pin.pinPhysProps.geoPoint))
+            viewModel.updateViewPort(mapStateCollected.viewPort.copy(mapCenter = pin.pinPhysProps.geoPoint))
+        },
+        onDownloadIntent = {
+
+            when (uiStateCollected.isDownloading) {
+                false -> {
+
+                    val minZoom = mapStateCollected.viewPort.mapZoom.toInt() // FROM WHAT ZOOM LEVEL
+                    val maxZoom = uiStateManager.uiStateR.value.cachingZoomSliderValue.toInt() // TO WAHT ZOOM LEVEL
+                    val bounds = osmdroidManager.getMapView().boundingBox // CURRENT BOUNDS FROM PHYSICAL VIEW!
+
+                    // #2 change UI
+                    uiStateManager.startDownloadUI()
+
+                    // #3 start task
+                    osmdroidManager.startDownload(bounds, minZoom, maxZoom) { success ->
+                        uiStateManager.stopDownloadUI()
+                        Toast.makeText(ctx, if (success) "CACHE: saved!" else "CACHE: error!", Toast.LENGTH_SHORT).show()
+                    }
+
+                }
+
+                true -> {
+
+                    // #2 change UI
+                    uiStateManager.stopDownloadUI()
+                    // #3 stop all tasks
+                    osmdroidManager.stopAllDownloads()
+
+                }
+
+            }
+
+
+
         }
-    )
+    ) // modal renderer finish
 
-//    osmdroidManager.animateTo(pin.pinPhysProps.geoPoint)
-    //                uiModalManager.openPinsList()
-    //                Log.d("ass", "PIN LIST OPEN")
-
-
-} // ScreenMap end
+} // ScreenMap finish
 

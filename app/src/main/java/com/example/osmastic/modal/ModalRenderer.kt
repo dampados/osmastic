@@ -14,12 +14,14 @@ fun ModalRenderer(
     manager: StateUIViewModel,
     pins: Set<PinLogical>,
     onPinRowClicked: (PinLogical) -> Unit,
+    onDownloadIntent: () -> Unit,
 ) {
     val uiState by manager.uiStateR.collectAsState()
 
     when (uiState.activeModal) {
         ModalType.PinsList -> PinListDialog(manager, pins, onPinRowClicked)
         ModalType.ChannelsList -> ChannelListDialog(manager)
+        ModalType.Layers -> LayersDialog(manager, onDownloadIntent)
         null -> Unit
     }
 }
