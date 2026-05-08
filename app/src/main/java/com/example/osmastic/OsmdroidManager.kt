@@ -1,6 +1,7 @@
 package com.example.osmastic
 
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -181,6 +182,29 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
                 }
                 true
             }
+            isDraggable = true
+            setOnMarkerDragListener(object : Marker.OnMarkerDragListener {
+                override fun onMarkerDragStart(marker: Marker) {}
+                override fun onMarkerDrag(marker: Marker) {}
+                override fun onMarkerDragEnd(marker: Marker) {
+                    val newGeoPoint = marker.position
+                    // отправляем команду
+                    Log.d("ASS", newGeoPoint.toIntString())
+                }
+            })
+//            setOnMarkerDragListener { marker, _, _ ->
+//                val newGeoPoint = marker.position
+//                // отправляем команду
+//            }
+//            setOnMarkerDragListener(object : OnMarkerDragListener {
+////                override fun onMarkerDragStart(marker: Marker) {}
+////                override fun onMarkerDrag(marker: Marker) {}
+//                override fun onMarkerDragEnd(marker: Marker) {
+//                    val newGeoPoint = marker.position
+//                    // Отправляем команду в ViewModel (без ожидания)
+////                    viewModel.updatePinPosition(pinLogicalId, newGeoPoint)
+//                }
+//            })
         }
     }
 
@@ -248,6 +272,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
         pushManyPinsIntoPhysicalView(incomingPins)
     }
 
+    //deprecated
     fun centerOnMyLocation(onResult: (Boolean, GeoPoint?) -> Unit) {
         if (!myLocationOverlay.isMyLocationEnabled) {
             myLocationOverlay.enableMyLocation()
