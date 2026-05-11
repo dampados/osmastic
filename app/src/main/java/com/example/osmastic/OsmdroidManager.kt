@@ -1,7 +1,6 @@
 package com.example.osmastic
 
 import android.content.Context
-import android.util.Log
 import android.widget.Toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +33,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
                       private val onTapShortCallback: suspend (Context, GeoPoint) -> PinLogical, // SHORT TAPS REACTION CALLBACK <- a logical pin
                       private val onTapLongCallback: suspend (Context, GeoPoint) -> PinLogical, //  LONG TAPS
                       private val onPinClick: suspend (Context, Int) -> PinLogical?,             // Pin SHORT clicks!
+                      private val onMarkerMovedCallback: (Int, GeoPoint) -> Unit,           // sync and unidirectional event spawn!
 ) {
 
     // TODO: GLOBAL - ADD SHARED COROUTINE SCOPE! THESE Dispatchers.Main - MONSTROUS
@@ -187,24 +187,14 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
                 override fun onMarkerDragStart(marker: Marker) {}
                 override fun onMarkerDrag(marker: Marker) {}
                 override fun onMarkerDragEnd(marker: Marker) {
-                    val newGeoPoint = marker.position
-                    // отправляем команду
-                    Log.d("ASS", newGeoPoint.toIntString())
+                    val typeCastedMarker = marker as LabeledMarker
+
+                    val newGeoPoint = typeCastedMarker.position
+                    val movedPinLogicalID = typeCastedMarker.pinLogicalId
+
+                    onMarkerMovedCallback(movedPinLogicalID, newGeoPoint)
                 }
             })
-//            setOnMarkerDragListener { marker, _, _ ->
-//                val newGeoPoint = marker.position
-//                // отправляем команду
-//            }
-//            setOnMarkerDragListener(object : OnMarkerDragListener {
-////                override fun onMarkerDragStart(marker: Marker) {}
-////                override fun onMarkerDrag(marker: Marker) {}
-//                override fun onMarkerDragEnd(marker: Marker) {
-//                    val newGeoPoint = marker.position
-//                    // Отправляем команду в ViewModel (без ожидания)
-////                    viewModel.updatePinPosition(pinLogicalId, newGeoPoint)
-//                }
-//            })
         }
     }
 

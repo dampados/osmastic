@@ -58,6 +58,18 @@ class LabeledMarker(
     }
 }
 
+sealed class Inquiry {
+    data class PinMoveInquiry(val movedPinID: Int, val newGeopoint: GeoPoint): Inquiry()
+    // todo < EXPAND EVENT HERE >
+}
+sealed class InquiryResult {
+    data class SinglePin(val pin: PinLogical): InquiryResult()
+    data class PinPair(val oldPin: PinLogical, val newPin: PinLogical): InquiryResult()
+    data class ManyPins(val pins: Set<PinLogical>): InquiryResult()
+    object None : InquiryResult()
+    data class Error(val message: String) : InquiryResult()
+}
+
 data class PinRemoveInquiry(
     val pinLogicalId: Int,
     val reachedDB: Boolean,
@@ -97,6 +109,7 @@ data class StateMapModel (
     val pinRenderInquiries: Set<PinLogical> = emptySet(),      // LaunchedEffect MUST be able to observe DELTAS
     val pinRemoveInquiries: Set<PinRemoveInquiry> = emptySet(), // INVALID PINS IDS FOR DELAYED GC!
     val pinUpdateInquiries: Set<PinLogical> = emptySet(), // TODO EXPERIMENTAL update pin inquiries to trigger LAUNCHED EFFECT TO call OSMD callback to: GC + PUSH.
+    val pinMoveInquiries: Set<Inquiry.PinMoveInquiry> = emptySet(), // EXPERIMENTAL new logic of a USE CASE
 )
 @HiltViewModel
 class StateMapViewModel @Inject constructor(
@@ -318,7 +331,7 @@ class StateMapViewModel @Inject constructor(
         pushNewPinFromBottom(PinUI(geoPoint))
     fun constructAndPushPinFull(pinUI: PinUI) =
         pushNewPinFromBottom(pinUI)
-    fun replaceInvalidPinIds(incomingInquiries: Set<PinRemoveInquiry>) { //TODO - REDO WITH SUBTRACTING!!!!
+    fun replaceInvalidPinIds(incomingInquiries: Set<PinRemoveInquiry>) {
         _mapStateRW.update { current ->
             current.copy(
                 pinRemoveInquiries = incomingInquiries,
@@ -351,6 +364,78 @@ class StateMapViewModel @Inject constructor(
             current.copy(
                 pinUpdateInquiries = current.pinUpdateInquiries - incomingUpdatedPins
             )
+        }
+    }
+
+    fun addInquiry(inquiry: Inquiry) {
+        when (inquiry) {
+            is Inquiry.PinMoveInquiry -> _mapStateRW.update { it.copy( pinMoveInquiries = it.pinMoveInquiries + inquiry )}
+            // is Inquiry.XXX -> EXPAND HERE
+        }
+    }
+
+    fun removeInquiry(inquiry: Inquiry) {
+        when (inquiry) {
+            is Inquiry.PinMoveInquiry -> _mapStateRW.update { it.copy(pinMoveInquiries = it.pinMoveInquiries - inquiry) }
+        }
+    }
+
+    fun applyMapStateInquiry(inquiry: Inquiry): InquiryResult {
+        when (inquiry) {
+            is Inquiry.PinMoveInquiry -> {
+
+                // #0 snapshot
+                val preMovedPin = mapStateR.value.pins.find { it.pinLogicalId == inquiry.movedPinID }
+
+                // #1 error early cut
+                if (preMovedPin == null) return InquiryResult.Error("Sync error detected: no such pin in MVU")
+//                if (preMovedPin == null) return InquiryResultGeneric.Error("Sync error detected: no such pin in MVU")
+
+                // #2 build new logical pin
+                val SECOND_IN_MIL = 1000
+                val MINUTE_IN_SEC = 60
+                val fetchedEditorHash = repoPin.portalToMesh.serviceConnectionWrapper.getUniqueNodeIdMark()?.takeLast(4) ?: "local"
+                val updatedPinPhysProps = preMovedPin.pinPhysProps.copy( geoPoint = inquiry.newGeopoint )
+
+                val movedPinHalfBaked = PinLogical(
+                    pinLogicalId = inquiry.movedPinID,
+                    lamportEpoch = preMovedPin.lamportEpoch + 1,
+                    editorMark = fetchedEditorHash, //oldFoundPinLogical.editorHash,
+                    expirationTimestamp = preMovedPin.expirationTimestamp,
+                    pinPhysProps = updatedPinPhysProps,
+                )
+
+                // we push to repo a pin logical object with recaulated TTL so EACH node could recreate PIN if missed initial one
+                // better convergence on drifted away clocks!
+                val recalculatedMinutesTTL = when {
+                    movedPinHalfBaked.expirationTimestamp == 0L -> 0  // eternal
+                    else -> {
+                        val remaining = ((movedPinHalfBaked.expirationTimestamp - System.currentTimeMillis()) / (SECOND_IN_MIL * MINUTE_IN_SEC) ).toInt()
+                        remaining.coerceIn(1, 16383)  // varint KILLER SWITCH (not more than 2 bytes payload)
+                    }
+                }
+
+                val movedPin = movedPinHalfBaked.copy(
+                    pinPhysProps = movedPinHalfBaked.pinPhysProps.copy(
+                        minutesTTL = recalculatedMinutesTTL // MINUTES FROM NOW ON | two bytes max
+                    )
+                )
+
+                //#4 update MVU
+                _mapStateRW.update { current ->
+                    val pinsModified = current.pins.map { pinFromPreMovedEra ->
+                        if (pinFromPreMovedEra.pinLogicalId == inquiry.movedPinID) movedPin else pinFromPreMovedEra
+                    }.toSet()
+                    current.copy(
+                        pins = pinsModified,
+                    )
+                }
+
+                // #5
+                return InquiryResult.PinPair(preMovedPin, movedPin )
+
+            }
+            // is Inquiry.XXX -> {} < EXPAND HERE >
         }
     }
     // 🧩🧩🧩 AVAILABLE METHODS

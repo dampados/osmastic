@@ -80,6 +80,7 @@ class RepoPin(
             expirationTimestamp = pinLogical.expirationTimestamp,
         )
     }
+
     //->
     private fun stripDefaults(builderProtobuf: PinMessage.Builder, outgoingPinLogical: PinLogical): PinMessage.Builder {
 
@@ -299,67 +300,6 @@ class RepoPin(
 
 
 // 🎊🎊🎊 INTERACTIVE PART 🎊🎊🎊
-    suspend fun pushOnePinFurther(outgoingPinLogical: PinLogical): Boolean {
-
-        when (validatePin(outgoingPinLogical)) {
-            is ValidationResult.Valid -> {
-//                val pinLogicalId = pinDao.insert(convertToEntity(outgoingPinLogical))
-                val versionInternalID = pinDao.insertVersion(convertToEntity(outgoingPinLogical))
-                winnerDao.choosePinForRendering(ToBeRenderedPin(
-                    pinLogicalId = outgoingPinLogical.pinLogicalId,
-                    pinVersionInternalID = versionInternalID)
-                )
-
-                portalToMesh.serviceConnectionWrapper.sendToTheEther(prepCreationProtobuf(outgoingPinLogical).toByteArray())
-                Toast.makeText(fuckingContext, "SIDE EFFECT, logID: ${outgoingPinLogical.pinLogicalId}", Toast.LENGTH_SHORT).show()
-                return true
-            }
-            is ValidationResult.Invalid -> {
-                // Log errors, emit rollback, etc
-                Toast.makeText(fuckingContext, "ROLLBACK, logID: ${outgoingPinLogical.pinLogicalId}", Toast.LENGTH_SHORT).show()
-                return false
-            }
-        }
-    }
-    suspend fun pushOneDeltaFurther(oldPinLogical: PinLogical, updPinLogical: PinLogical): Boolean {
-
-        when (validatePin(updPinLogical)) {
-            is ValidationResult.Valid -> {
-                // <PUSH TO ROOM>
-//                // #1 Get existing entity with its internalId
-//                val existingEntity = pinDao.getById(updPinLogical.pinLogicalId)
-//                    ?: return false  // SIMPLE ROLLBACK IF STATE SYNC SCREWED!
-//                // #2 Convert updated pin to entity
-//                val updatedEntity = convertToEntity(updPinLogical)
-//                // #3 Preserve the primary key
-//                val entityToUpdate = updatedEntity.copy(
-//                    internalId = existingEntity.internalId
-//                )
-//                // #4 Update using Room's @Update
-//                pinDao.update(entityToUpdate)
-
-                // validation passed?
-                // #1 INSERT VERSION
-                // #2 CHANGE WINNER
-                val versionInternalID = pinDao.insertVersion(convertToEntity(updPinLogical))
-                winnerDao.choosePinForRendering(ToBeRenderedPin(
-                    pinLogicalId = updPinLogical.pinLogicalId,
-                    pinVersionInternalID = versionInternalID)
-                )
-
-                // <construct DELTA -> PUSH to radio!>
-                portalToMesh.serviceConnectionWrapper.sendToTheEther(prepUpdateProtobuf(oldPinLogical,updPinLogical).toByteArray())
-                Toast.makeText(fuckingContext, "SIDE EFFECT UPDATE!", Toast.LENGTH_SHORT).show()
-                return true
-            }
-            is ValidationResult.Invalid -> {
-                // Log errors, emit rollback, etc
-                Toast.makeText(fuckingContext, "ROLLBACK, logID: ${updPinLogical.pinLogicalId}", Toast.LENGTH_SHORT).show()
-                return false
-            }
-        }
-
-    }
 
     // 🧪🧪🧪 ------- EXPERIMENTAL ------- 🧪🧪🧪 //
     suspend fun pushPinFurther(
@@ -409,97 +349,28 @@ class RepoPin(
             )
         }.toSet()
     }
+
+    suspend fun getAllVersions(pinLogicalId: Int): Set<PinLogical> {
+        return pinDao.getAllVersionsByLogId(pinLogicalId).map { fetchedEntity ->
+            PinLogical(
+                pinLogicalId = fetchedEntity.pinLogicalId,
+                lamportEpoch = fetchedEntity.lamportEpoch,
+                editorMark = fetchedEntity.editorHash,
+                expirationTimestamp = fetchedEntity.expirationTimestamp,
+                pinPhysProps = PinUI(
+                    geoPoint = GeoPoint(fetchedEntity.latitude / 1e6, fetchedEntity.longitude / 1e6),
+                    iconUnicode = fetchedEntity.iconUnicode,
+                    label = fetchedEntity.label,
+                    rotationByte = fetchedEntity.rotationByte,
+                    isHiddenBeforeTTL = fetchedEntity.isHiddenBeforeTTL,
+                )
+            )
+        }.toSet()
+    }
+
     suspend fun deleteBulkByLogicalIds(pinLogicalIds: Set<Int>): Int {
         return pinDao.deleteBulkByLogIds(pinLogicalIds)
     }
-
-    /*
-    @Deprecated("Still debugging", level = DeprecationLevel.HIDDEN)
-    suspend fun handleIncomingPinMessageOld(parsedRawPinMessage: PinMessage) {
-        // #0 DECISION
-        if (parsedRawPinMessage.hasLamportEpoch()) {
-
-              if (pinDao.pinExists(parsedRawPinMessage.pinLogicalId)) {
-
-                  val storedPinEntity = pinDao.getById(parsedRawPinMessage.pinLogicalId)!! // !! bc i got checks OUTSIDE, at this point im sure pin exists!
-
-                  val newPinLogical = buildBasedOnOldPinFromMessage(storedPinEntity, parsedRawPinMessage)
-
-
-                  if (newPinLogical.lamportEpoch > storedPinEntity.lamportEpoch) { // TODO бля, второй час ночи, попытка починить ХОЛОД
-
-                      val existingEntity = pinDao.getById(newPinLogical.pinLogicalId)          // side effect 1!
-                      val updatedEntity = convertToEntity(newPinLogical)
-                      val entityToUpdate = updatedEntity.copy(
-                              internalId = existingEntity!!.internalId
-                      )
-                      pinDao.update(entityToUpdate)
-
-                      onHandledPinUpdateRequestCallback?.invoke(newPinLogical) // side effect 2!
-
-
-                  } else if (newPinLogical.lamportEpoch < storedPinEntity.lamportEpoch) {
-                      // drop! too logically old //TODO implement HISTORY (so no information gets dropped ever) 3
-                  } else if (newPinLogical.lamportEpoch == storedPinEntity.lamportEpoch) {
-
-
-                      // #0 prep data: current primary channel PSK + stored editorMark + new editorMark
-                      val chPSK = portalToMesh.serviceConnectionWrapper.getPrimaryChannelPsk()
-                      val md5er = MessageDigest.getInstance("MD5")
-                      val newHash = md5er.digest("$chPSK$newPinLogical.editorHash".toByteArray())
-                      val oldHash = md5er.digest("$chPSK$storedPinEntity.editorHash".toByteArray())
-
-                      val newInt = newHash.take(2).joinToString("") { "%02x".format(it) }.toInt(16)
-                      val oldInt = oldHash.take(2).joinToString("") { "%02x".format(it) }.toInt(16)
-
-                      val newHashString = newHash.joinToString("") { "%02x".format(it) }
-                      val oldHashString = oldHash.joinToString("") { "%02x".format(it) }
-
-                      // CONFLICT! // TODO deterministic decision mkaing based on meshtastic channel PSK salt + new.editorHash vs old.editorHash
-                      if ( newInt < oldInt ) {
-                          //< do rewrite! > < new one wins! >
-                          val existingEntity = pinDao.getById(newPinLogical.pinLogicalId)          // side effect 1!
-                          val updatedEntity = convertToEntity(newPinLogical)
-                          val entityToUpdate = updatedEntity.copy(
-                              internalId = existingEntity!!.internalId
-                          )
-                          pinDao.update(entityToUpdate)
-
-                          onHandledPinUpdateRequestCallback?.invoke(newPinLogical) // side effect 2!
-
-
-                          Log.d("ASS", "NEW PIN WON ${newHashString}, ${oldHashString}")
-
-                      } else {
-                          Log.d("ASS", "OLD PIN WON ${newHashString}, ${oldHashString}")
-                      }
-                  }
-
-              } else {
-//                  <drop! for now its invalid garbage for us!> // TODO implement HISTORY (so no information gets dropped ever) 1
-                  return
-             }
-
-        } else {
-            // pure creation CHECK:
-            if (parsedRawPinMessage.hasLat() && parsedRawPinMessage.hasLon()) {
-
-                val builtPinLogical = buildBasedOnDefaultsFromMessage(parsedRawPinMessage)
-
-                when (val result = validatePin(builtPinLogical)) {
-                    is ValidationResult.Valid -> {
-                        val logicalIdInternal = pinDao.insert(convertToEntity(builtPinLogical))
-                        onHandledPinCreationRequestCallback?.invoke(builtPinLogical)
-                    }
-                    is ValidationResult.Invalid -> { /* DROP? */ }
-                }
-            } else {
-                //                  <drop! for now its invalid garbage for us!> // TODO implement HISTORY (so no information gets dropped ever) 2
-                return
-            }
-        }
-    }
-*/
     suspend fun handleIncomingPinMessage(parsedRawPinMessage: PinMessage) {
 
         // # 00

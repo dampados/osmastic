@@ -4,6 +4,7 @@ package com.example.osmastic
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,6 +56,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 // MODALS IMPORT
 import com.example.osmastic.modal.PinEditDialog
+import kotlinx.coroutines.flow.update
 
 @Composable
 fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
@@ -66,6 +68,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     var dialogGeoPoint by remember { mutableStateOf<GeoPoint?>(null) } // thats to teleport geopoint to the CREATION dialog! SCREENMAP -> MODAL
     var dialogPinUI by remember { mutableStateOf<PinUI?>(null) } // thats to teleport geopoint to the UPDATE dialog!        SCREENMAP -> MODAL
     var dialogContinuation by remember { mutableStateOf<Continuation<PinUI>?>(null) }           // thats our teleport       MODAL -> SCREENMAP
+    var clickedPinLogicalId by remember { mutableStateOf<Int?>(null) }
 
     suspend fun showPinCreationModal(geoPoint: GeoPoint): PinUI = suspendCoroutine { cont ->
         showDialog = true
@@ -74,11 +77,12 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         dialogContinuation = cont  // ← saves the waiting coroutine
     }
 
-    suspend fun showPinUpdateModal(pinUI: PinUI): PinUI = suspendCoroutine { cont ->
+    suspend fun showPinUpdateModal(pinUI: PinUI, pinLogicalId: Int): PinUI = suspendCoroutine { cont ->
         showDialog = true
         dialogGeoPoint = null
         dialogPinUI = pinUI
         dialogContinuation = cont
+        clickedPinLogicalId = pinLogicalId
     }
 
     val ctx = LocalContext.current
@@ -97,7 +101,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 viewModel.replacePins(coldPins)
                 coldPins            // ◀️◀️◀️ and return back... yeah
             },
-            onTapShortCallback = { context, geoPoint,  ->
+            onTapShortCallback = { _, geoPoint,  ->
 //                uiModalManager.openPinsList()
 //                Log.d("ass", "PIN LIST OPEN")
                 viewModel.constructAndPushPinQuick(geoPoint) // ◀️◀️◀️ and return back... yeah
@@ -106,15 +110,19 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 val newPinUI = showPinCreationModal(geoPoint)  // 🛑🛑🛑  --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type 🛑🛑🛑
                 viewModel.constructAndPushPinFull(newPinUI)  // ◀️◀️◀️ and return back... yeah
             },
-            onPinClick = { context, pinLogicalId ->
+            onPinClick = { _, pinLogicalId ->
 
                 mapStateCollected.pins.find { it.pinLogicalId == pinLogicalId }?.let { foundPin ->
-                    val updatedPinUI = showPinUpdateModal(foundPin.pinPhysProps)    // 🛑🛑🛑  --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type 🛑🛑🛑
+                    val updatedPinUI = showPinUpdateModal(foundPin.pinPhysProps, pinLogicalId)    // 🛑🛑🛑  --- FULL STOP HERE ON COROUTINE THREAD LEVEL!!! callback is of suspend type 🛑🛑🛑
                     viewModel.updatePinFromBottom(foundPin, updatedPinUI) // ◀️◀️◀️ and return back... yeah
                 } ?: run {
                     // NO PIN FOUND!!! manual sync failed . . .  - trigger GC or trust our pipelines? return null either way
                     null                                    // ◀️◀️◀️ and return back... yeah
                 }
+            },
+            onMarkerMovedCallback = { movedPinLogicalID, newGeoPoint ->
+                val newMoveInquiry = Inquiry.PinMoveInquiry(movedPinLogicalID, newGeoPoint)
+                viewModel.addInquiry(newMoveInquiry)
             }
         )
     }
@@ -213,6 +221,30 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         }
 
     }
+    LaunchedEffect(mapStateCollected.pinMoveInquiries) {
+
+        if (mapStateCollected.pinMoveInquiries.isNotEmpty()) {
+            // #0 snapshottim
+            val pinMoveInquiriesSnapshot = mapStateCollected.pinMoveInquiries // SNAPSHOT OF THE STATE!
+            val anInquiry = pinMoveInquiriesSnapshot.first()
+
+            // #1 dispatch and update mvu
+             when ( val result = viewModel.applyMapStateInquiry(anInquiry) ) {
+                 is InquiryResult.Error -> {
+                     Log.e("MOVEPIN", result.message)
+                 }
+                 is InquiryResult.PinPair -> {
+                     Log.e("MOVEPIN", result.newPin.toString())
+                     // #2 update radio + cold via repo
+                     viewModel.repoPin.pushPinFurther(result.oldPin, result.newPin)
+                 }
+                 else -> Unit
+             }
+
+            // #3 subtract inquiries
+            viewModel.removeInquiry(anInquiry)
+        }
+    }
     // 🎣🎣🎣 EFFECTS BLOCK 🎣🎣🎣
 
     AndroidView<MapView>(
@@ -260,7 +292,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                         showDialog = false
                         dialogContinuation?.resume(PinUI(geoPoint = dialogGeoPoint!!))
                         dialogContinuation = null
-                    }
+                    },
                 )
             }
             dialogPinUI != null -> {
@@ -276,7 +308,11 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                         showDialog = false
                         dialogContinuation?.resume(dialogPinUI!!)  // return ORIGNAL??? on dismiss
                         dialogContinuation = null
-                    }
+                    },
+                    onLoadHistory = { passedPinID ->
+                        viewModel.repoPin.getAllVersions(passedPinID)
+                    },
+                    pinLogicalId = clickedPinLogicalId,
                 )
             }
         }
@@ -293,6 +329,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
 //        }
     }
 
+    // buttonchiki at the bottom
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier

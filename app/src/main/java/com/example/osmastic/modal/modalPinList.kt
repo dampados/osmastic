@@ -113,7 +113,7 @@ private fun PinListItem(
     }
 }
 
-private fun formatTTL(timestamp: Long): String {
+fun formatTTL(timestamp: Long): String {
     if (timestamp == 0L) return "∞"
     val minutesLeft = (timestamp - System.currentTimeMillis()) / (1000 * 60)
     return if (minutesLeft <= 0) "0м" else "${minutesLeft}м"
