@@ -195,6 +195,7 @@ class OsmdroidManager(private val appContext: Context,                 // CLASS 
                     onMarkerMovedCallback(movedPinLogicalID, newGeoPoint)
                 }
             })
+            alpha = if (pin.pinPhysProps.isHiddenBeforeTTL) 0.3f else 1.0f
         }
     }
 
