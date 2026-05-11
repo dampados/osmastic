@@ -1,7 +1,5 @@
 package com.example.osmastic.modal
 
-import ChannelListDialog
-import PinListDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue

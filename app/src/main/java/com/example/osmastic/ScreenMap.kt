@@ -2,7 +2,11 @@
 
 package com.example.osmastic
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
@@ -41,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import com.example.osmastic.modal.ModalRenderer
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
@@ -277,6 +282,16 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
         }
     } // OLD ROUTER
 
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) {
+//        isGranted ->
+//        if (isGranted) {
+//            startGpsRoutine()
+//        } else {
+//            Toast.makeText(ctx, "No permission -> no GPS!", Toast.LENGTH_SHORT).show()
+//        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -316,23 +331,34 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             Button(
                 onClick = {
 
-                    if (uiStateCollected.isGpsActive) {
-                        osmdroidManager.disableGpsReal()
-                        uiStateManager.disableGpsUI()
+                    // #0
+                    val hasPermission = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    // todo offload gps routine to a function to call it on permission granted in permission dialog launcher
+                    if (hasPermission) {
+                        if (uiStateCollected.isGpsActive) {
+                            osmdroidManager.disableGpsReal()
+                            uiStateManager.disableGpsUI()
 
-                    } else {
-                        uiStateManager.enableGpsUI()
-                        uiStateManager.enableGpsInProgressUI()
+                        } else {
+                                                        // #1 UI state
+                            uiStateManager.enableGpsUI()
+                            uiStateManager.enableGpsInProgressUI()
 
-                        osmdroidManager.enableGpsAndCenterOn { success ->
-                            uiStateManager.disableGpsInProgressUI()
-                            if (!success) {
-                                Toast.makeText(ctx, "GPS isn't ready", Toast.LENGTH_SHORT).show()
-                                uiStateManager.disableGpsUI()
+                            // #2 poshla ebka
+                            osmdroidManager.enableGpsAndCenterOn { success ->
+                                uiStateManager.disableGpsInProgressUI()
+                                if (!success) {
+                                    Toast.makeText(ctx, "GPS isn't ready", Toast.LENGTH_SHORT).show()
+                                    uiStateManager.disableGpsUI()
+                                }
+
                             }
-
                         }
+                    } else {
+                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                     }
+
+
                 },
                 enabled = !uiStateCollected.isGpsInSwitchingStage,
                 modifier = Modifier.weight(1f),
