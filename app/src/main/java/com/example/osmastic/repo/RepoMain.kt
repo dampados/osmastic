@@ -288,10 +288,31 @@ class RepoPin(
 
         val chPSK = portalToMesh.serviceConnectionWrapper.getPrimaryChannelPsk()
         val md5er = MessageDigest.getInstance("MD5")
-        val newHash = md5er.digest("$chPSK$incoming.editorHash".toByteArray())
-        val oldHash = md5er.digest("$chPSK$stored.editorHash".toByteArray())
+        val newHash = md5er.digest("${chPSK}${incoming.editorMark}".toByteArray())
+        val oldHash = md5er.digest("${chPSK}${stored.editorHash}".toByteArray())
         val newInt = newHash.take(2).joinToString("") { "%02x".format(it) }.toInt(16)
         val oldInt = oldHash.take(2).joinToString("") { "%02x".format(it) }.toInt(16)
+
+        val newHashString = newHash.joinToString("") { "%02x".format(it) }
+        val oldHashString = oldHash.joinToString("") { "%02x".format(it) }
+
+//        if (newInt < oldInt) Log.d("ASS", "new won") else Log.d("ASS", "stored won")
+
+//        Log.d("ASS", "///////////////////////////////")
+//        Log.d("ASS","psk = ${chPSK}")
+//        Log.d("ASS", "stored lamport = ${stored.lamportEpoch}")
+//        Log.d("ASS","storedMark = ${stored.editorHash}")
+//        Log.d("ASS", "incoming lamport = ${incoming.lamportEpoch}")
+//        Log.d("ASS","incomingMark = ${incoming.editorMark}")
+//        Log.d("ASS", "---------------------------")
+//        Log.d("ASS", newHashString)
+//        Log.d("ASS", newInt.toString())
+//        Log.d("ASS", oldHashString)
+//        Log.d("ASS", oldInt.toString())
+//        Log.d("ASS", "---------------------------")
+//        if (newInt < oldInt) Log.d("ASS", "new won") else Log.d("ASS", "stored won")
+
+
 
         return newInt < oldInt
     }
