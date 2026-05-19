@@ -23,11 +23,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Grading
+import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.DeveloperBoardOff
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.SatelliteAlt
@@ -69,6 +72,8 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
     var dialogPinUI by remember { mutableStateOf<PinUI?>(null) } // thats to teleport geopoint to the UPDATE dialog!        SCREENMAP -> MODAL
     var dialogContinuation by remember { mutableStateOf<Continuation<PinUI>?>(null) }           // thats our teleport       MODAL -> SCREENMAP
     var clickedPinLogicalId by remember { mutableStateOf<Int?>(null) }
+
+    var showDebug by remember { mutableStateOf<Boolean>(value = false)  }
 
     suspend fun showPinCreationModal(geoPoint: GeoPoint): PinUI = suspendCoroutine { cont ->
         showDialog = true
@@ -259,22 +264,24 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
 
 
 
-    //DEBUG // TODO move somewhere smarter
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier.statusBarsPadding()
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+    if (showDebug) {
+        //DEBUG //
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = modifier.statusBarsPadding()
         ) {
-            Text("Zoom: ${mapStateCollected.viewPort.mapZoom}", fontSize = 14.sp)
-            Text("${mapStateCollected.viewPort.mapCenter}", fontSize = 14.sp)
-            Text("${mapStateCollected.viewPort.mapBearing}", fontSize = 14.sp)
-            Text("${mapStateCollected.pinRemoveInquiries}", fontSize = 15.sp)
-            Text("${mapStateCollected.pinRenderInquiries}", fontSize = 15.sp)
-            Text("${mapStateCollected.pins}", fontSize = 8.sp)
-        }
-    } // Box end
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Zoom: ${mapStateCollected.viewPort.mapZoom}", fontSize = 14.sp)
+                Text("${mapStateCollected.viewPort.mapCenter}", fontSize = 14.sp)
+                Text("${mapStateCollected.viewPort.mapBearing}", fontSize = 14.sp)
+                Text("${mapStateCollected.pinRemoveInquiries}", fontSize = 15.sp)
+                Text("${mapStateCollected.pinRenderInquiries}", fontSize = 15.sp)
+                Text("${mapStateCollected.pins}", fontSize = 8.sp)
+            }
+        } // Box end
+    }
 
     // ON RECOMPOSE + showDialog == true - MODAL APPEARS
     if (showDialog) {
@@ -335,13 +342,16 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(6.dp)
+                .padding(12.dp)
                 .navigationBarsPadding()
                 .imePadding(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             val ROUNDED_PERCENT = 32
-            val ICON_SIZE = 25
+            val ICON_SIZE = 30
+
+            val iconMod = Modifier
+                .requiredSize((ICON_SIZE * 0.5).dp)
 
             Button(
                 onClick = { uiStateManager.openPinsList() },
@@ -351,7 +361,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Grading,
                     contentDescription = null,
-                    modifier = Modifier.size(ICON_SIZE.dp)
+                    modifier = iconMod
                 )
             }
             Button(
@@ -362,7 +372,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 Icon(
                     imageVector = Icons.Default.SatelliteAlt,
                     contentDescription = null,
-                    modifier = Modifier.size(ICON_SIZE.dp)
+                    modifier = iconMod
                 )
             }
             Button(
@@ -404,7 +414,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 Icon(
                     imageVector = Icons.Default.MyLocation,
                     tint = if (uiStateCollected.isGpsActive) Color.Green else LocalContentColor.current,
-                    modifier = Modifier.size(ICON_SIZE.dp),
+                    modifier = iconMod,
                     contentDescription = null,
                 )
             }
@@ -421,7 +431,7 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
                 Icon(
                     imageVector = Icons.Default.ScreenRotationAlt,
                     contentDescription = null,
-                    modifier = Modifier.size(ICON_SIZE.dp)
+                    modifier = iconMod
                 )
             }
             Button(
@@ -431,9 +441,20 @@ fun ScreenMap(viewModel: StateMapViewModel, modifier: Modifier = Modifier) {
             ) {
                 Icon(
                     imageVector = Icons.Default.Layers,
-                    modifier = Modifier.size(ICON_SIZE.dp),
+                    modifier = iconMod,
                     contentDescription = null,
                     )
+            }
+            Button(
+                onClick = { showDebug = !showDebug },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(ROUNDED_PERCENT)
+            ) {
+                Icon(
+                    imageVector = if (showDebug) Icons.Default.DeveloperBoard else Icons.Default.DeveloperBoardOff,
+                    modifier = iconMod,
+                    contentDescription = null,
+                )
             }
         } // buttons BOX finish
     }
