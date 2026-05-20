@@ -1,8 +1,9 @@
 <div align="center">
-  <h4>Off-grid map pin editor prototype app based on independent radio. No cell towers.</h4>
+  <h4>OSMastic -- Off-grid map pin editor prototype app based on independent radio. No cell towers.</h4>
   <img src="./assets/gif_crdt_convergence_compressed4.gif" alt="CRDT convergence based on logical counter and static nodes relationship tie-breaking instead of simple LWW rewrite" width="75%">
-  <p>Demonstates an attempt to approach some level of consistency, document convergence in aggressive LoRa mesh without central node, ideal TCP broadband channel and meta data redundancy or other global truth sync means.</p>
 </div>
+
+# Demonstates an attempt to approach some level of consistency, document convergence in aggressive LoRa mesh without central node, ideal TCP broadband channel and meta data redundancy or other global truth sync means.
 
 ## Features:
 + Local-first, Multi-Value pin register (history) with only winner pin rendered;
