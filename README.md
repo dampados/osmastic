@@ -6,33 +6,33 @@
 #### Exploring consistency and convergence in a decentralized LoRa mesh. No central node, no TCP, no global truth.
 
 ## Technologies used:
-+ **[LoRa Alliance](https://lora-alliance.org/)** — radio
-+ **[Meshtastic](https://meshtastic.org/)** — protocol/firmware & official **[Android app](https://github.com/meshtastic/Meshtastic-Android)** — AIDL
-+ **[protobuf](https://protobuf.dev/)** — data serialization protocol
-+ **[CRDT](https://crdt.tech/)** — local and foreign data merging concept
-+ **[OpenStreetMap](https://www.openstreetmap.org/)** & **[Voyager tiles](https://carto.com/blog/new-voyager-basemap/)** — map data
-+ **[osmdroid](https://github.com/osmdroid/osmdroid)** — map widget, offline tiles
-+ **[Kotlin](https://kotlinlang.org/)** / **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state management
-+ **[Android Studio](https://developer.android.com/studio)** — IDE
-+ **[HILT, KSM, ROOM](https://developer.android.com/jetpack)** — instruments 
+- **[LoRa Alliance](https://lora-alliance.org/)** — radio
+- **[Meshtastic](https://meshtastic.org/)** — protocol/firmware & official **[Android app](https://github.com/meshtastic/Meshtastic-Android)** — AIDL
+- **[protobuf](https://protobuf.dev/)** — data serialization protocol
+- **[CRDT](https://crdt.tech/)** — local and foreign data merging concept
+- **[OpenStreetMap](https://www.openstreetmap.org/)** & **[Voyager tiles](https://carto.com/blog/new-voyager-basemap/)** — map data
+- **[osmdroid](https://github.com/osmdroid/osmdroid)** — map widget, offline tiles
+- **[Kotlin](https://kotlinlang.org/)** / **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state management
+- **[Android Studio](https://developer.android.com/studio)** — IDE
+- **[HILT, KSM, ROOM](https://developer.android.com/jetpack)** — instruments 
 
 ## Features:
-+ Jetpack Compose + Kotlin built;
-+ Local-first, Multi-Value pin register (history) with only winner pin rendered;
-+ Uses AIDL interface of the official Meshtastic app;
-+ CRDT: classic LWW, no timestamps though -- logical counter and Time To Live for pins;
-+ TTL is static, once set -- unchangeable;
-+ TTL on all rebroadcasts gets recalculated for the nodes, that missed initial creation event packet.
-+ Random logical IDs 4 byte entropy long;
-+ Tie-breaking: static relationships between every two nodes in a channel known to everyone: PSK + NodeID --> MD5 hashing;
-+ Map widget is the old osmdroid, custom Marker class (visible label, metadata injected);
-+ Supports rotation, GPS, region caching with UI indication in Layers modal;
-+ Pins can be rotated, labeled, emojies allowed as icons, dimmed (if stale), moved;
-+ Full pin history in modal, no information gets droped on stale or conflict events;
-+ Voyager map tiles, light variant. 
+- Jetpack Compose - Kotlin built;
+- Local-first, Multi-Value pin register (history) with only winner pin rendered;
+- Uses AIDL interface of the official Meshtastic app;
+- CRDT: classic LWW, no timestamps though -- logical counter and Time To Live for pins;
+- TTL is static, once set -- unchangeable;
+- TTL on all rebroadcasts gets recalculated for the nodes, that missed initial creation event packet.
+- Random logical IDs 4 byte entropy long;
+- Tie-breaking: static relationships between every two nodes in a channel known to everyone: PSK - NodeID --> MD5 hashing;
+- Map widget is the old osmdroid, custom Marker class (visible label, metadata injected);
+- Supports rotation, GPS, region caching with UI indication in Layers modal;
+- Pins can be rotated, labeled, emojies allowed as icons, dimmed (if stale), moved;
+- Full pin history in modal, no information gets droped on stale or conflict events;
+- Voyager map tiles, light variant. 
 
 ## Lots of other stuff gotta be implemented or fixed:
-+ [x] README
+- [x] README
 - [ ] conflict detection indicator
 - [ ] on conflict detected rebroadcasting button
 - [ ] fix two-way async callback hell -> MVI
@@ -42,7 +42,7 @@
 - [ ] emojie rotation indicator on edit modal ( or on the map directly )
 - [ ] mapnik/voyager/sat switch
 - [ ] light/dark themes (where supported)
-- [ ] drop tiles cache button + taken space indicator
+- [ ] drop tiles cache button - taken space indicator
 - [ ] ugly edit modal UI redo
 - [ ] ugly bottom bar with buttons UI redo
 - [ ] meshtastic channels switch support (currently uses 0 or primary one) (possible problems with delivery)
@@ -52,7 +52,7 @@
 - [ ] delete eternal (no TTL was set) pins button (local!)
 - [ ] add logical id collision pre-flight check
 - [ ] add automatic rebroadcast on conflicts? for stale pins
-- [ ] link to previous state built into message? light optional causality based on (lamport + editorMark)
+- [ ] link to previous state built into message? light optional causality based on (lamport - editorMark)
 - [ ] dark/light theme switch and rotation: osmdroid recomposes and dies -> fix hoisting
 - [ ] icon
 - [ ] TDD: unit tests for sync. logic
