@@ -1,9 +1,6 @@
-<!-- CRDT (LWW-registry + MV history + logical clock -->
-
 <div align="center">
-  <h2>OSMastic</h2>
-  <img src="./assets/gif_crdt_convergence_compressed4.gif" alt="CRDT convergence based on logical counter and static nodes relationship tie-breaking instead of simple LWW rewrite" width="75%">
   <h4>Off-grid map pin editor prototype app based on independent radio. No cell towers.</h4>
+  <img src="./assets/gif_crdt_convergence_compressed4.gif" alt="CRDT convergence based on logical counter and static nodes relationship tie-breaking instead of simple LWW rewrite" width="75%">
   Demonstates an attempt to approach some level of consistency, document convergence in aggressive LoRa mesh without central node, ideal TCP broadband channel and meta data redundancy or other global truth sync means.
 </div>
 
