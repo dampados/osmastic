@@ -6,26 +6,14 @@
 #### Demonstrates an attempt to approach some level of consistency, document convergence in aggressive LoRa mesh without central node, ideal TCP broadband channel and meta data redundancy or other global truth sync means.
 
 ## 3rd party technologies used:
-+ JetBrains Android Studio   -> developer.android.com/studio
-+ LoRa                       -> lora-alliance.org
-+ Meshtastic                 -> meshtastic.org
-+ MT Android app repo        -> github.com/meshtastic/Meshtastic-Android
-+ osmdroid                   -> github.com/osmdroid/osmdroid
-+ protobuf                   -> protobuf.dev
-+ CRDT idea                  -> crdt.tech
-+ open street map            -> openstreetmap.org
-+ voyager tiles              -> carto.com/blog/new-voyager-basemap/
-
-## Built with 🛠️
-
-- **[Kotlin](https://kotlinlang.org/)** / **[Compose](https://developer.android.com/jetpack/compose)** — UI & logic
-- **[Meshtastic](https://meshtastic.org/)** — radio protocol & [official Android app](https://github.com/meshtastic/Meshtastic-Android) (AIDL)
-- **[protobuf](https://protobuf.dev/)** — data serialization
-- **[osmdroid](https://github.com/osmdroid/osmdroid)** — map widget, offline tiles
-- **[CRDT](https://crdt.tech/)** — local-first consistency concept
-- **[OpenStreetMap](https://www.openstreetmap.org/)** & **[Voyager tiles](https://carto.com/blog/new-voyager-basemap/)** — map data
-- **[LoRa Alliance](https://lora-alliance.org/)** — radio technology
-- **[Android Studio](https://developer.android.com/studio)** — IDE
++ **[LoRa Alliance](https://lora-alliance.org/)** — radio technology
++ **[Meshtastic](https://meshtastic.org/)** — protocol/firmwares & **[theirs' Android app](https://github.com/meshtastic/Meshtastic-Android)** — AIDL
++ **[protobuf](https://protobuf.dev/)** — data serialization
++ **[CRDT](https://crdt.tech/)** — local<->foreign data merging concept
++ **[OpenStreetMap](https://www.openstreetmap.org/)** & **[Voyager tiles](https://carto.com/blog/new-voyager-basemap/)** — map data
++ **[osmdroid](https://github.com/osmdroid/osmdroid)** — map widget, offline tiles
++ **[Kotlin](https://kotlinlang.org/)** / **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state
++ **[Android Studio](https://developer.android.com/studio)** — IDE/HILT/KSM/ROOM/...
 
 ## Features:
 + Jetpack Compose + Kotlin built;
