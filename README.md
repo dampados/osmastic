@@ -15,25 +15,25 @@
 - **[osmdroid](https://github.com/osmdroid/osmdroid)** — map widget, offline tiles
 - **[Android Studio](https://developer.android.com/studio)** — IDE
 - **[Kotlin](https://kotlinlang.org/)**
-- **[HILT, KSM, ROOM](https://developer.android.com/jetpack)** — instruments
+- **[Hilt, KSP, ROOM](https://developer.android.com/jetpack)** — instruments
 - **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state management
 
 ## Features:
-- Jetpack Compose - Kotlin built;
+- Kotlin + Jetpack Compose used;
 - Local-first, Multi-Value pin register (history) with only winner pin rendered;
 - Uses AIDL interface of the official Meshtastic app;
-- CRDT: classic LWW, no timestamps though -- logical counter and Time To Live for pins;
-- TTL is static, once set -- unchangeable;
+- CRDT: classic LWW, but no timestamps — logical counter and Time To Live for pins;
+- TTL is static, once set — unchangeable;
 - TTL on all rebroadcasts gets recalculated for the nodes, that missed initial creation event packet.
 - Random logical IDs 4 byte entropy long;
 - Tie-breaking: static relationships between every two nodes in a channel known to everyone: PSK+NodeID --> MD5 hashing;
 - Map widget is the old osmdroid, custom Marker class (visible label, metadata injected);
 - Supports rotation, GPS, region caching with UI indication in Layers modal;
-- Pins can be rotated, labeled, emojies allowed as icons, dimmed (if stale), moved;
-- Full pin history in modal, no information gets droped on stale or conflict events;
+- Pins can be rotated, labeled, emojis allowed as icons, dimmed (if stale), moved;
+- Full pin history in modal, no information gets dropped on stale or conflict events;
 - Voyager map tiles, light variant. 
 
-## Lots of other stuff gotta be implemented or fixed:
+## Planned improvements:
 - [x] README
 - [ ] conflict detection indicator
 - [ ] on conflict detected rebroadcasting button
