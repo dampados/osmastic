@@ -4,19 +4,21 @@
   <p>Demonstates an attempt to approach some level of consistency, document convergence in aggressive LoRa mesh without central node, ideal TCP broadband channel and meta data redundancy or other global truth sync means.</p>
 </div>
 
-+ Local-first, Multi-Value pin register (history) with only winner pin rendered.
-+ Uses AIDL interface of the official Meshtastic app.
-+ CRDT used is classic LWW, but no timestamps, only logical lamport counter and Time To Live for pins.
-+ TTL is static, once set -> unchangeable.
-+ TTL on all updates or manual rebroadcasts get recalculated for those nodes, that missed initial creation packet.
-+ Uses random logical IDs 4 byte entropy long.
-+ Tie-breaking based on static relationships between all nodes in a Meshtastic channel: PSK as salt concatenates with 2 bytes of current NodeID -> MD5 hashing.
-+ Map widget is old osmdroid, custom Marker class. Supports rotation, GPS.
-+ Pins can be rotated, labeled, EMOJIes allowed as icons, dimmed (if stale), moved.
-+ Currently uses Voyager map tiles, light variant. 
-+ Supports region caching with UI indication in Layers modal.
+## Features:
++ Local-first, Multi-Value pin register (history) with only winner pin rendered;
++ Uses AIDL interface of the official Meshtastic app;
++ CRDT: classic LWW, no timestamps though -- logical counter and Time To Live for pins;
++ TTL is static, once set -- unchangeable;
++ TTL on all rebroadcasts gets recalculated for the nodes, that missed initial creation event packet.
++ Random logical IDs 4 byte entropy long;
++ Tie-breaking: static relationships between every two nodes in a channel known to everyone: PSK + NodeID --> MD5 hashing;
++ Map widget is the old osmdroid, custom Marker class (visible label, metadata injected);
++ Supports rotation, GPS, region caching with UI indication in Layers modal;
++ Pins can be rotated, labeled, EMOJIes allowed as icons, dimmed (if stale), moved;
++ Full pin history in modal, no information gets droped on stale or conflict events;
++ Voyager map tiles, light variant. 
 
-Lots of other stuff gotta be implemented or fixed:
+## Lots of other stuff gotta be implemented or fixed:
 [] conflict detection indicator
 [ ] on present conflict rebroadcasting button
 2) disable broadcasting on edit modal dismiss ( reason in 6) )
@@ -33,3 +35,4 @@ Lots of other stuff gotta be implemented or fixed:
 13) gps not ready button deadlock fix
 14) maplibre switch, when its markers ready
 15) delete eternal pin button (local only)
+16) add logical id collision pre-flight check
