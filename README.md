@@ -26,7 +26,7 @@
 - TTL is static, once set -- unchangeable;
 - TTL on all rebroadcasts gets recalculated for the nodes, that missed initial creation event packet.
 - Random logical IDs 4 byte entropy long;
-- Tie-breaking: static relationships between every two nodes in a channel known to everyone: PSK - NodeID --> MD5 hashing;
+- Tie-breaking: static relationships between every two nodes in a channel known to everyone: PSK+NodeID --> MD5 hashing;
 - Map widget is the old osmdroid, custom Marker class (visible label, metadata injected);
 - Supports rotation, GPS, region caching with UI indication in Layers modal;
 - Pins can be rotated, labeled, emojies allowed as icons, dimmed (if stale), moved;
