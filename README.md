@@ -15,7 +15,7 @@
 - **[osmdroid](https://github.com/osmdroid/osmdroid)** — map widget, offline tiles
 - **[Android Studio](https://developer.android.com/studio)** — IDE
 - **[Kotlin](https://kotlinlang.org/)**
-- **[Hilt, KSP, ROOM](https://developer.android.com/jetpack)** — instruments
+- **[Hilt, KSP, Room](https://developer.android.com/jetpack)** — instruments
 - **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state management
 
 ## Features:
