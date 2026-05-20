@@ -7,14 +7,16 @@
 
 ## Technologies used:
 - **[LoRa Alliance](https://lora-alliance.org/)** — radio
-- **[Meshtastic](https://meshtastic.org/)** — protocol/firmware & official **[Android app](https://github.com/meshtastic/Meshtastic-Android)** — AIDL
+- **[Meshtastic](https://meshtastic.org/)** — transport layer and devices' firmwares
+- official **[Android app](https://github.com/meshtastic/Meshtastic-Android)** — AIDL
 - **[protobuf](https://protobuf.dev/)** — data serialization protocol
 - **[CRDT](https://crdt.tech/)** — local and foreign data merging concept
 - **[OpenStreetMap](https://www.openstreetmap.org/)** & **[Voyager tiles](https://carto.com/blog/new-voyager-basemap/)** — map data
 - **[osmdroid](https://github.com/osmdroid/osmdroid)** — map widget, offline tiles
-- **[Kotlin](https://kotlinlang.org/)** / **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state management
 - **[Android Studio](https://developer.android.com/studio)** — IDE
-- **[HILT, KSM, ROOM](https://developer.android.com/jetpack)** — instruments 
+- **[Kotlin](https://kotlinlang.org/)**
+- **[HILT, KSM, ROOM](https://developer.android.com/jetpack)** — instruments
+- **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state management
 
 ## Features:
 - Jetpack Compose - Kotlin built;
