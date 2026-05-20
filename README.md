@@ -5,7 +5,19 @@
 
 #### Demonstrates an attempt to approach some level of consistency, document convergence in aggressive LoRa mesh without central node, ideal TCP broadband channel and meta data redundancy or other global truth sync means.
 
+## 3rd party technologies used:
++ JetBrains Android Studio   -> developer.android.com/studio
++ LoRa                       -> lora-alliance.org
++ Meshtastic                 -> meshtastic.org
++ MT Android app repo        -> github.com/meshtastic/Meshtastic-Android
++ osmdroid                   -> github.com/osmdroid/osmdroid
++ protobuf                   -> protobuf.dev
++ CRDT idea                  -> crdt.tech
++ open street map            -> openstreetmap.org
++ voyager tiles              -> carto.com/blog/new-voyager-basemap/
+
 ## Features:
++ Jetpack Compose + Kotlin built;
 + Local-first, Multi-Value pin register (history) with only winner pin rendered;
 + Uses AIDL interface of the official Meshtastic app;
 + CRDT: classic LWW, no timestamps though -- logical counter and Time To Live for pins;
@@ -20,20 +32,28 @@
 + Voyager map tiles, light variant. 
 
 ## Lots of other stuff gotta be implemented or fixed:
-[] conflict detection indicator
-[ ] on present conflict rebroadcasting button
-2) disable broadcasting on edit modal dismiss ( reason in 6) )
-3) green/red dot latest map caching result
-4) emojie rotation indicator on edit modal
-5) ugly coroutine pause redo ( reason in 6) )
-6) fix two-way async callback hell -> MVI
-7) mapnik/voyager/sat switch
-8) light/dark themes
-9) drop tiles cache button
-10) ugly edit modal UI redo
-11) ugly bottom bar UI redo
-12) channels + another radio layer switch (other meshtastic channeles, gprc relay server, etc.)
-13) gps not ready button deadlock fix
-14) maplibre switch, when its markers ready
-15) delete eternal pin button (local only)
-16) add logical id collision pre-flight check
+- [x] README
+- [ ] conflict detection indicator
+- [ ] on conflict detected rebroadcasting button
+- [ ] fix two-way async callback hell -> MVI
+- [ ] ugly edit UI coroutine pause redo
+- [ ] disable broadcasting on edit modal dismiss
+- [ ] green/red dot latest map caching result
+- [ ] emojie rotation indicator on edit modal ( or on the map directly )
+- [ ] mapnik/voyager/sat switch
+- [ ] light/dark themes (where supported)
+- [ ] drop tiles cache button + taken space indicator
+- [ ] ugly edit modal UI redo
+- [ ] ugly bottom bar with buttons UI redo
+- [ ] meshtastic channels switch support (currently uses 0 or primary one) (possoble problems with delivery)
+- [ ] another radio layer switch ( gprc relay server, wifi udp, bluetooth, DMR custom, etc.)
+- [ ] gps not ready button deadlock fix -> add condition GPS allowed check
+- [ ] maplibre switch, when its markers ready (not in this lifetime)
+- [ ] delete eternal pins button (local only!)
+- [ ] add logical id collision pre-flight check
+- [ ] add automatic rebroadcast on conflicts? for stale pins
+- [ ] link to previous state built into message? light optional casuality based on (lamport + editorMark)
+- [ ] dark/light theme switch and rotation: osmdroid recomposes and dies -> fix hoisting
+- [ ] icon
+- [ ] TDD: unit tests for sync. logic
+- [ ] clean every ugly comment
