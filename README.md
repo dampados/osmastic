@@ -41,7 +41,7 @@
 - [ ] ugly edit UI coroutine pause redo
 - [ ] disable broadcasting on edit modal dismiss
 - [ ] green/red dot latest map caching result
-- [ ] emojie rotation indicator on edit modal ( or on the map directly )
+- [ ] emoji rotation indicator on edit modal ( or on the map directly )
 - [ ] mapnik/voyager/sat switch
 - [ ] light/dark themes (where supported)
 - [ ] drop tiles cache button - taken space indicator
