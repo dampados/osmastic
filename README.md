@@ -16,6 +16,17 @@
 + open street map            -> openstreetmap.org
 + voyager tiles              -> carto.com/blog/new-voyager-basemap/
 
+## Built with 🛠️
+
+- **[Kotlin](https://kotlinlang.org/)** / **[Compose](https://developer.android.com/jetpack/compose)** — UI & logic
+- **[Meshtastic](https://meshtastic.org/)** — radio protocol & [official Android app](https://github.com/meshtastic/Meshtastic-Android) (AIDL)
+- **[protobuf](https://protobuf.dev/)** — data serialization
+- **[osmdroid](https://github.com/osmdroid/osmdroid)** — map widget, offline tiles
+- **[CRDT](https://crdt.tech/)** — local-first consistency concept
+- **[OpenStreetMap](https://www.openstreetmap.org/)** & **[Voyager tiles](https://carto.com/blog/new-voyager-basemap/)** — map data
+- **[LoRa Alliance](https://lora-alliance.org/)** — radio technology
+- **[Android Studio](https://developer.android.com/studio)** — IDE
+
 ## Features:
 + Jetpack Compose + Kotlin built;
 + Local-first, Multi-Value pin register (history) with only winner pin rendered;
