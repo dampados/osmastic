@@ -3,17 +3,18 @@
   <img src="./assets/gif_crdt_convergence_compressed4.gif" alt="CRDT convergence based on logical counter and static nodes relationship tie-breaking instead of simple LWW rewrite" width="75%">
 </div>
 
-#### Demonstrates an attempt to approach some level of consistency, document convergence in aggressive LoRa mesh without central node, ideal TCP broadband channel and meta data redundancy or other global truth sync means.
+#### Exploring consistency and convergence in a decentralized LoRa mesh. No central node, no TCP, no global truth.
 
-## 3rd party technologies used:
+## Technologies used:
 + **[LoRa Alliance](https://lora-alliance.org/)** — radio technology
-+ **[Meshtastic](https://meshtastic.org/)** — protocol/firmwares & **[theirs' Android app](https://github.com/meshtastic/Meshtastic-Android)** — AIDL
-+ **[protobuf](https://protobuf.dev/)** — data serialization
-+ **[CRDT](https://crdt.tech/)** — local<->foreign data merging concept
++ **[Meshtastic](https://meshtastic.org/)** — protocol/firmware & official **[Android app](https://github.com/meshtastic/Meshtastic-Android)** — AIDL
++ **[protobuf](https://protobuf.dev/)** — data serialization protocol
++ **[CRDT](https://crdt.tech/)** — local and foreign data merging concept
 + **[OpenStreetMap](https://www.openstreetmap.org/)** & **[Voyager tiles](https://carto.com/blog/new-voyager-basemap/)** — map data
 + **[osmdroid](https://github.com/osmdroid/osmdroid)** — map widget, offline tiles
-+ **[Kotlin](https://kotlinlang.org/)** / **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state
-+ **[Android Studio](https://developer.android.com/studio)** — IDE/HILT/KSM/ROOM/...
++ **[Kotlin](https://kotlinlang.org/)** / **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state management
++ **[Android Studio](https://developer.android.com/studio)** — IDE
++ **[HILT, KSM, ROOM](https://developer.android.com/jetpack)** — instruments 
 
 ## Features:
 + Jetpack Compose + Kotlin built;
@@ -26,12 +27,12 @@
 + Tie-breaking: static relationships between every two nodes in a channel known to everyone: PSK + NodeID --> MD5 hashing;
 + Map widget is the old osmdroid, custom Marker class (visible label, metadata injected);
 + Supports rotation, GPS, region caching with UI indication in Layers modal;
-+ Pins can be rotated, labeled, EMOJIes allowed as icons, dimmed (if stale), moved;
++ Pins can be rotated, labeled, emojies allowed as icons, dimmed (if stale), moved;
 + Full pin history in modal, no information gets droped on stale or conflict events;
 + Voyager map tiles, light variant. 
 
 ## Lots of other stuff gotta be implemented or fixed:
-- [x] README
++ [x] README
 - [ ] conflict detection indicator
 - [ ] on conflict detected rebroadcasting button
 - [ ] fix two-way async callback hell -> MVI
@@ -44,14 +45,14 @@
 - [ ] drop tiles cache button + taken space indicator
 - [ ] ugly edit modal UI redo
 - [ ] ugly bottom bar with buttons UI redo
-- [ ] meshtastic channels switch support (currently uses 0 or primary one) (possoble problems with delivery)
+- [ ] meshtastic channels switch support (currently uses 0 or primary one) (possible problems with delivery)
 - [ ] another radio layer switch ( gprc relay server, wifi udp, bluetooth, DMR custom, etc.)
 - [ ] gps not ready button deadlock fix -> add condition GPS allowed check
 - [ ] maplibre switch, when its markers ready (not in this lifetime)
-- [ ] delete eternal pins button (local only!)
+- [ ] delete eternal (no TTL was set) pins button (local!)
 - [ ] add logical id collision pre-flight check
 - [ ] add automatic rebroadcast on conflicts? for stale pins
-- [ ] link to previous state built into message? light optional casuality based on (lamport + editorMark)
+- [ ] link to previous state built into message? light optional causality based on (lamport + editorMark)
 - [ ] dark/light theme switch and rotation: osmdroid recomposes and dies -> fix hoisting
 - [ ] icon
 - [ ] TDD: unit tests for sync. logic
