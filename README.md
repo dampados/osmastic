@@ -1,12 +1,12 @@
 <div align="center">
-  <h4>OSMastic -- Off-grid map pin editor prototype app based on independent radio. No cell towers.</h4>
+  <h4>OSMastic — Off-grid map pin editor prototype app based on independent radio. No cell towers.</h4>
   <img src="./assets/gif_crdt_convergence_compressed4.gif" alt="CRDT convergence based on logical counter and static nodes relationship tie-breaking instead of simple LWW rewrite" width="75%">
 </div>
 
 #### Exploring consistency and convergence in a decentralized LoRa mesh. No central node, no TCP, no global truth.
 
 ## Technologies used:
-+ **[LoRa Alliance](https://lora-alliance.org/)** — radio technology
++ **[LoRa Alliance](https://lora-alliance.org/)** — radio
 + **[Meshtastic](https://meshtastic.org/)** — protocol/firmware & official **[Android app](https://github.com/meshtastic/Meshtastic-Android)** — AIDL
 + **[protobuf](https://protobuf.dev/)** — data serialization protocol
 + **[CRDT](https://crdt.tech/)** — local and foreign data merging concept
