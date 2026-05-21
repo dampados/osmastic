@@ -40,6 +40,10 @@
 - Full pin history in modal, no information gets dropped on stale or conflict events;
 - Voyager map tiles, light variant. 
 
+<div align="left">
+  <img src="./assets/screens_battery.jpg" alt="quick demonstration of the app features" width="75%">
+</div>
+
 ## Planned improvements:
 - [x] README
 - [ ] conflict detection indicator
