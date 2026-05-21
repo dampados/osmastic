@@ -19,7 +19,7 @@
 - **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state management
 
 <div align="left">
-  <img src="./assets/gif2_optimized3-speed50.gif" alt="quick demonstration of the app features" width="75%">
+  <img src="./assets/gif2_optimized3-speed50.gif" alt="quick demonstration of the app features" width="100%">
 </div>
 
 #### Quick demonstration of the app features.
