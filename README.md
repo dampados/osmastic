@@ -1,4 +1,4 @@
-<div align="center">
+<div align="right">
   <img src="https://img.shields.io/badge/version-0.1.0-orange">
   <img src="https://img.shields.io/badge/min%20SDK-29-brightgreen">
   <img src="https://img.shields.io/badge/license-MIT-blue">
