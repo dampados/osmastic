@@ -18,6 +18,10 @@
 - **[Hilt, KSP, Room](https://developer.android.com/jetpack)** — instruments
 - **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state management
 
+<div align="center">
+  <img src="./assets/gif2_optimized3-speed50.gif" alt="quick demonstration of the app features" width="75%">
+</div>
+
 ## Features:
 - Kotlin + Jetpack Compose used;
 - Local-first, Multi-Value pin register (history) with only winner pin rendered;
