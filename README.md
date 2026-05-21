@@ -1,4 +1,4 @@
-<div align="left">
+<div align="center">
   <h4>OSMastic — Off-grid map editing prototype app. Works over independent radio, no cell towers.</h4>
   <img src="./assets/gif_crdt_convergence_compressed4.gif" alt="CRDT convergence based on logical counter and static nodes relationship tie-breaking instead of simple LWW rewrite" width="75%">
 </div>
