@@ -1,4 +1,10 @@
 <div align="center">
+  <img src="https://img.shields.io/badge/version-0.1.0-orange">
+  <img src="https://img.shields.io/badge/min%20SDK-29-brightgreen">
+  <img src="https://img.shields.io/badge/license-MIT-blue">
+</div>
+
+<div align="center">
   <h4>OSMastic — Off-grid map editing prototype app. Works over independent radio, no cell towers.</h4>
   <img src="./assets/gif_crdt_convergence_compressed4.gif" alt="CRDT convergence based on logical counter and static nodes relationship tie-breaking instead of simple LWW rewrite" width="75%">
 </div>
@@ -36,7 +42,7 @@
 - CRDT: classic LWW, but no timestamps — logical counter and Time To Live for pins;
 - TTL is static, once set — unchangeable;
 - TTL on all rebroadcasts gets recalculated for the nodes, that missed initial creation event packet.
-- Random logical IDs 4 byte entropy long;
+- 4-byte entropy for random logical IDs;
 - Tie-breaking: static relationships between every two nodes in a channel known to everyone: PSK+NodeID --> MD5 hashing;
 - Map widget is the old osmdroid, custom Marker class (visible label, metadata injected);
 - Supports rotation, GPS, region caching with UI indication in Layers modal;
@@ -70,8 +76,8 @@
 - [ ] another radio layer switch ( gprc relay server, wifi udp, bluetooth, DMR custom, etc.)
 - [ ] gps not ready button deadlock fix -> add condition GPS allowed check
 - [ ] maplibre switch, when its markers ready (not in this lifetime)
-- [ ] delete eternal (no TTL was set) pins button (local!)
-- [ ] add logical id collision pre-flight check
+- [ ] delete persistent (no TTL was set) pins button (local!)
+- [ ] add logical id collision preflight check
 - [ ] add automatic rebroadcast on conflicts? for stale pins
 - [ ] link to previous state built into message? light optional causality based on (lamport - editorMark)
 - [ ] dark/light theme switch and rotation: osmdroid recomposes and dies -> fix hoisting
