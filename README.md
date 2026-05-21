@@ -1,4 +1,4 @@
-<div align="center">
+<div align="left">
   <h4>OSMastic — Off-grid map editing prototype app. Works over independent radio, no cell towers.</h4>
   <img src="./assets/gif_crdt_convergence_compressed4.gif" alt="CRDT convergence based on logical counter and static nodes relationship tie-breaking instead of simple LWW rewrite" width="75%">
 </div>
@@ -18,7 +18,7 @@
 - **[Hilt, KSP, Room](https://developer.android.com/jetpack)** — instruments
 - **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state management
 
-<div align="center">
+<div align="left">
   <img src="./assets/gif2_optimized3-speed50.gif" alt="quick demonstration of the app features" width="75%">
 </div>
 
