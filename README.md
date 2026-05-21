@@ -41,7 +41,7 @@
 - Voyager map tiles, light variant. 
 
 <div align="left">
-  <img src="./assets/screens_battery.jpg" alt="quick demonstration of the app features" width="75%">
+  <img src="./assets/screens_battery.jpg" alt="quick demonstration of the app features" width="100%">
 </div>
 
 ## Planned improvements:
