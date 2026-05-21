@@ -22,6 +22,9 @@
   <img src="./assets/gif2_optimized3-speed50.gif" alt="quick demonstration of the app features" width="75%">
 </div>
 
+#### Quick demonstration of the app features.
+
+
 ## Features:
 - Kotlin + Jetpack Compose used;
 - Local-first, Multi-Value pin register (history) with only winner pin rendered;
