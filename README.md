@@ -7,7 +7,7 @@
 
 ## Technologies used:
 - **[LoRa Alliance](https://lora-alliance.org/)** — radio
-- **[Meshtastic](https://meshtastic.org/)** — transport layer and devices' firmwares
+- **[Meshtastic](https://meshtastic.org/)** — transport layer and LoRa device firmware
 - official **[Android app](https://github.com/meshtastic/Meshtastic-Android)** — AIDL
 - **[protobuf](https://protobuf.dev/)** — data serialization protocol
 - **[CRDT](https://crdt.tech/)** — local and foreign data merging concept
