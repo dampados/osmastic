@@ -22,7 +22,7 @@
   <img src="./assets/gif2_optimized3-speed50.gif" alt="quick demonstration of the app features" width="100%">
 </div>
 
-#### Quick demonstration of the app features.
+#### Quick demonstration of the app features: pin select from list, map tiles caching, GPS, pin rotation.
 
 
 ## Features:
