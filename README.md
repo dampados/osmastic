@@ -18,6 +18,8 @@
 - **[Hilt, KSP, Room](https://developer.android.com/jetpack)** — instruments
 - **[Compose](https://developer.android.com/jetpack/compose)** — UI & UI state management
 
+---
+
 <div align="left">
   <img src="./assets/gif2_optimized3-speed50.gif" alt="quick demonstration of the app features" width="100%">
   <p></p>
@@ -25,6 +27,7 @@
 
 #### Quick demonstration of the app features: pin select from list, map tiles caching, GPS, pin rotation.
 
+---
 
 ## Features:
 - Kotlin + Jetpack Compose used;
@@ -44,6 +47,8 @@
 <div align="left">
   <img src="./assets/screens_battery.jpg" alt="quick demonstration of the app features" width="100%">
 </div>
+
+---
 
 ## Planned improvements:
 - [x] README
