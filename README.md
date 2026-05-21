@@ -25,7 +25,7 @@
   <p></p>
 </div>
 
-#### Quick demonstration of the app features: pin select from list, map tiles caching, GPS, pin rotation.
+#### Quick demonstration of the app features: pin selection from list, map tiles caching, GPS, pin rotation.
 
 ---
 
@@ -47,6 +47,8 @@
 <div align="left">
   <img src="./assets/screens_battery.jpg" alt="quick demonstration of the app features" width="100%">
 </div>
+
+#### Quick demonstration of the app features: pin selection from list, editing, dimming, configuring expiration period.
 
 ---
 
