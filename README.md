@@ -56,6 +56,13 @@
 
 #### Quick demonstration of the app features: pin selection from list, editing, dimming, configuring expiration period.
 
+<div align="left">
+  <img src="./assets/versions.jpg" alt="multi-value register backend" width="100%">
+</div>
+
+#### Pin Version History – Multi-Value Register.
+All pin updates are retained — even stale and conflicting ones. The mesh operates over a slow, unreliable channel with no metadata, no redundancy, and no delivery guarantees. This is not Operational Transform (OT). The system attempts to resolve conflicts automatically, but the final authority will remain with the user. (For now: view-only. Later: manual resolution.)
+
 ---
 
 ## Planned improvements:
