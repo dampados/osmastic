@@ -50,18 +50,19 @@
 - Full pin history in modal, no information gets dropped on stale or conflict events;
 - Voyager map tiles, light variant. 
 
+---
+
+#### Quick demonstration of the app features: pin selection from list, editing, dimming, configuring expiration period.
 <div align="left">
   <img src="./assets/screens_battery.jpg" alt="quick demonstration of the app features" width="100%">
 </div>
 
-#### Quick demonstration of the app features: pin selection from list, editing, dimming, configuring expiration period.
-
+#### Pin Version History – Multi-Value Register.
 <div align="left">
-  <img src="./assets/versions.jpg" alt="multi-value register backend" width="100%">
+  <img src="./assets/versions.jpg" alt="multi-value register backend" width="40%">
 </div>
 
-#### Pin Version History – Multi-Value Register.
-All pin updates are retained — even stale and conflicting ones. The mesh operates over a slow, unreliable channel with no metadata, no redundancy, and no delivery guarantees. This is not Operational Transform (OT). The system attempts to resolve conflicts automatically, but the final authority will remain with the user. (For now: view-only. Later: manual resolution.)
+All pin updates are retained — **stale and conflicting ones too**. The mesh operates over a slow, unreliable channel with no metadata, no redundancy, and no delivery guarantees. The system attempts to resolve conflicts automatically, render the most **likely** consistent truth, but the final authority will remain with the user (view-only currently).
 
 ---
 
@@ -91,3 +92,4 @@ All pin updates are retained — even stale and conflicting ones. The mesh opera
 - [ ] icon
 - [ ] TDD: unit tests for sync. logic
 - [ ] clean every ugly comment
+- [ ] history: manual winner set, local only. 
