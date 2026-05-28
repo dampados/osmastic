@@ -92,4 +92,5 @@ All pin updates are retained — **stale and conflicting ones too**. The mesh op
 - [ ] icon
 - [ ] TDD: unit tests for sync. logic
 - [ ] clean every ugly comment
-- [ ] history: manual winner set, local only. 
+- [ ] history: manual winner set, local only.
+- [ ] Wrap Pin insertion + winner selection in Room transaction (withTransaction)
