@@ -93,4 +93,5 @@ All pin updates are retained — **stale and conflicting ones too**. The mesh op
 - [ ] TDD: unit tests for sync. logic
 - [ ] clean every ugly comment
 - [ ] history: manual winner set, local only.
-- [ ] Wrap Pin insertion + winner selection in Room transaction (withTransaction)
+- [ ] wrap Pin insertion + winner selection in Room transaction (withTransaction)
+- [ ] add fields defaults directly into DB scheme (@ColumnInfo(defaultValue = "") in entities)
