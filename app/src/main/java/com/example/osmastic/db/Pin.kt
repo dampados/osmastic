@@ -4,6 +4,9 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 
+//EXPERIMENTAL 
+//     indices = [Index(value = ["pinLogicalId", "internalId"], unique = true)]
+
 @Entity(tableName = "pin")
 data class Pin(
     @PrimaryKey(autoGenerate = true) val internalId: Long = 0,  // auto-increment, NEVER SENT
@@ -36,3 +39,21 @@ data class ToBeRenderedPin(
     @PrimaryKey val pinLogicalId: Int,
     val pinVersionInternalID: Long
 )
+
+// EXPERIMENTAL 
+
+//@Entity(
+//    tableName = "to_be_rendered_pins",
+//    foreignKeys = [
+//        ForeignKey(
+//            entity = Pin::class,
+//            parentColumns = ["pinLogicalId", "internalId"],
+//            childColumns = ["pinLogicalId", "pinVersionInternalID"],
+//            onDelete = ForeignKey.CASCADE  // удаление Pin → удаляет победителя
+//        )
+//    ]
+//)
+//data class ToBeRenderedPin(
+//    @PrimaryKey val pinLogicalId: Int,
+//    val pinVersionInternalID: Long
+//)
