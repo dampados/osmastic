@@ -5,10 +5,9 @@
 </div>
 
 <div align="center">
-  <h4>OSMastic — Off-grid map editing prototype app. Works over independent radio, no cell towers.</h4>
+  <h4>OSMastic — Off-grid map editing prototype. Works over independent radio, no cell towers.</h4>
   <video width="100%" autoplay loop muted playsinline>
-  <source src="./assets/demo3_crdt.mp4" type="video/mp4">
-  Your browser does not support the video tag, assets catalog contains GIFs.
+    <source src="https://github.com/user-attachments/assets/8f29cde1-7c0f-4238-9523-181508cab459" type="video/mp4">
   </video>
 </div>
 
