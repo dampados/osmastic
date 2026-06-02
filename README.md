@@ -27,7 +27,7 @@
 ---
 
 <div align="left">
-  <img src="assets/demo3_crdt.avif" alt="avif">
+  <img src="assets/demo2_cropped.avif" alt="avif">
   <p></p>
 </div>
 
