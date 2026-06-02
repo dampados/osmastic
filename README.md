@@ -9,9 +9,6 @@
   <img src="assets/demo3_crdt.avif" alt="avif">
 </div>
 
-![avif](assets/demo3_crdt.avif)
-![avif](output-30.avif)
-
 #### Exploring consistency and convergence in a decentralized LoRa mesh. No central node, no TCP, no global truth.
 
 ## Technologies used:
@@ -30,7 +27,7 @@
 ---
 
 <div align="left">
-  <img src="./assets/gif2_optimized3-speed50.gif" alt="quick demonstration of the app features" width="100%">
+  <img src="assets/demo3_crdt.avif" alt="avif">
   <p></p>
 </div>
 
