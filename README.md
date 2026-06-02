@@ -6,9 +6,7 @@
 
 <div align="center">
   <h4>OSMastic — Off-grid map editing prototype. Works over independent radio, no cell towers.</h4>
-  <video width="100%" autoplay loop muted playsinline>
-    <source src="https://github.com/user-attachments/assets/8f29cde1-7c0f-4238-9523-181508cab459" type="video/mp4">
-  </video>
+![avif](./assets/demo3_crdt.avif)
 </div>
 
 #### Exploring consistency and convergence in a decentralized LoRa mesh. No central node, no TCP, no global truth.
