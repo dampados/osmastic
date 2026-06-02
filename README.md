@@ -67,7 +67,7 @@ All pin updates are retained — **stale and conflicting ones too**. The mesh op
 ---
 
 <div align="center">
-  <h4>Meshtastic current app (2.7.13 29320069 google) demo: — Strict rewrite on incoming message</h4>
+  <h4>Meshtastic current app (2.7.13 29320069 google) demo — Strict rewrite on incoming message</h4>
   <img src="assets/demo31.avif" alt="avif">
 </div>
 
