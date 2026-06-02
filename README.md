@@ -9,7 +9,7 @@
   <video width="100%" autoplay loop muted playsinline>
   <source src="./assets/demo3_crdt.mp4" type="video/mp4">
   Your browser does not support the video tag, assets catalog contains GIFs.
-</video>
+  </video>
 </div>
 
 #### Exploring consistency and convergence in a decentralized LoRa mesh. No central node, no TCP, no global truth.
