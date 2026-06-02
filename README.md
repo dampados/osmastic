@@ -6,7 +6,9 @@
 
 <div align="center">
   <h4>OSMastic — Off-grid map editing prototype. Works over independent radio, no cell towers.</h4>
+  <img src="assets/demo3_crdt.avif" alt="avif">
 </div>
+
 ![avif](assets/demo3_crdt.avif)
 ![avif](output-30.avif)
 
