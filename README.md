@@ -1,3 +1,7 @@
+[https://github.com/dampados/osmastic/releases/download/v0.1.0/osmastic-v0.1.0.apk
+](url)
+
+
 <div align="left">
   <img src="https://img.shields.io/badge/version-0.1.0-orange">
   <img src="https://img.shields.io/badge/min%20SDK-29-brightgreen">
